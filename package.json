@@ -1,0 +1,21 @@
+{
+  "name": "compta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Comptapilot — application de comptabilité tout-en-un pilotée par un moteur de calcul exhaustif",
+  "workspaces": [
+    "moteurs",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build:moteurs": "npm run build -w moteurs",
+    "test": "npm test -w moteurs",
+    "docs": "npm run docs -w moteurs",
+    "bench": "npm run bench -w moteurs",
+    "captures": "node scripts/captures.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.1"
+  }
+}

@@ -1,0 +1,110 @@
+// Comptapilot — schéma de données
+// Le moteur de calcul est sans état : la base conserve les utilisateurs,
+// le journal des calculs (audit trail) et les versions de barèmes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COMPTABLE
+  LECTEUR
+}
+
+enum StatutCalcul {
+  BROUILLON
+  VALIDE
+}
+
+enum StatutBareme {
+  OFFICIEL
+  A_VERIFIER
+}
+
+enum OrigineBareme {
+  BIBLIOTHEQUE // version livrée avec le moteur
+  SAISIE       // version ajoutée par un administrateur (loi de finances…)
+}
+
+model Utilisateur {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  nom          String
+  motDePasse   String
+  role         Role      @default(COMPTABLE)
+  creeLe       DateTime  @default(now())
+  derniereConnexion DateTime?
+  calculs      Calcul[]
+  versionsBaremes VersionBareme[]
+  journal      JournalAudit[]
+
+  @@map("utilisateurs")
+}
+
+/// Journal des calculs : chaque exécution enregistrée est immuable (entrées, résultats complets, empreinte).
+model Calcul {
+  id              String       @id @default(uuid())
+  utilisateurId   String
+  utilisateur     Utilisateur  @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  moteur          String
+  formuleId       String
+  formuleNom      String
+  formuleVersion  String
+  libelle         String?
+  entrees         Json
+  resultat        Json         /// ResultatCalcul complet (résultats, étapes, contrôles, tableaux, écritures, barèmes)
+  principal       String?      /// Valeur du premier résultat principal, pour l'affichage en liste
+  empreinte       String       /// SHA-256 de (formule, version, entrées normalisées, résultats)
+  nbErreurs       Int          @default(0)
+  nbAvertissements Int         @default(0)
+  dureeMs         Float
+  statut          StatutCalcul @default(BROUILLON)
+  valideLe        DateTime?
+  creeLe          DateTime     @default(now())
+
+  @@index([utilisateurId, creeLe])
+  @@index([moteur, formuleId])
+  @@index([empreinte])
+  @@map("calculs")
+}
+
+/// Base versionnée des taux et barèmes (historisation, application selon la date de l'opération).
+model VersionBareme {
+  id        String        @id @default(uuid())
+  code      String
+  moteur    String
+  libelle   String
+  du        String        /// AAAA-MM-JJ
+  au        String?
+  valeurs   Json
+  source    String
+  note      String?
+  statut    StatutBareme
+  origine   OrigineBareme @default(BIBLIOTHEQUE)
+  auteurId  String?
+  auteur    Utilisateur?  @relation(fields: [auteurId], references: [id], onDelete: SetNull)
+  creeLe    DateTime      @default(now())
+
+  @@unique([code, du])
+  @@index([code])
+  @@map("versions_baremes")
+}
+
+model JournalAudit {
+  id            String       @id @default(uuid())
+  utilisateurId String?
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+  action        String
+  cible         String?
+  details       Json?
+  creeLe        DateTime     @default(now())
+
+  @@index([creeLe])
+  @@map("journal_audit")
+}
