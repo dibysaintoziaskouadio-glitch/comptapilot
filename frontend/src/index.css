@@ -5,45 +5,53 @@
 @tailwind utilities;
 
 @layer base {
+  /* Palette Comptapilot : indigo profond, violet, magenta et bleu cyan. */
   :root {
-    --fond: 228 33% 97%;
+    --fond: 250 45% 97.5%;
     --surface: 0 0% 100%;
-    --surface-2: 228 30% 95.5%;
-    --bordure: 228 20% 89%;
-    --texte: 230 35% 12%;
-    --attenue: 229 12% 44%;
-    --accent: 243 75% 59%;
-    --accent-doux: 243 90% 96%;
-    --accent-texte: 243 60% 45%;
+    --surface-2: 250 40% 95.5%;
+    --bordure: 250 28% 89%;
+    --texte: 250 48% 12%;
+    --attenue: 250 15% 44%;
+    --accent: 268 82% 58%;
+    --accent-doux: 268 95% 96%;
+    --accent-texte: 268 70% 46%;
+    --magenta: 322 85% 56%;
+    --cyan: 200 95% 50%;
     --succes: 158 64% 36%;
     --alerte: 32 95% 44%;
-    --danger: 0 72% 51%;
+    --danger: 350 78% 52%;
     --info: 205 85% 45%;
-    --ombre: 232 40% 20%;
+    --ombre: 255 50% 22%;
     --pastille-l: 42%;
     color-scheme: light;
   }
   .dark {
-    --fond: 232 30% 7%;
-    --surface: 232 26% 10.5%;
-    --surface-2: 232 22% 14%;
-    --bordure: 232 18% 19%;
-    --texte: 228 30% 94%;
-    --attenue: 229 14% 62%;
-    --accent: 243 85% 68%;
-    --accent-doux: 243 45% 17%;
-    --accent-texte: 243 95% 80%;
-    --succes: 158 58% 48%;
-    --alerte: 38 92% 58%;
-    --danger: 0 80% 64%;
-    --info: 205 85% 62%;
-    --ombre: 232 60% 2%;
+    --fond: 250 48% 7.5%;
+    --surface: 250 42% 12%;
+    --surface-2: 250 36% 16%;
+    --bordure: 250 30% 22%;
+    --texte: 250 40% 95%;
+    --attenue: 250 18% 68%;
+    --accent: 272 92% 68%;
+    --accent-doux: 272 50% 20%;
+    --accent-texte: 276 100% 82%;
+    --magenta: 322 90% 64%;
+    --cyan: 197 95% 60%;
+    --succes: 158 58% 50%;
+    --alerte: 38 92% 60%;
+    --danger: 350 85% 66%;
+    --info: 200 90% 64%;
+    --ombre: 255 70% 3%;
     --pastille-l: 74%;
     color-scheme: dark;
   }
   html { -webkit-font-smoothing: antialiased; }
   body { @apply bg-fond text-texte font-sans; font-feature-settings: 'cv11', 'ss01'; }
   ::selection { background: hsl(var(--accent) / 0.25); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
   *:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; border-radius: 6px; }
 }
 
@@ -54,7 +62,17 @@
     background-image: radial-gradient(hsl(var(--bordure)) 1px, transparent 1px);
     background-size: 22px 22px;
   }
-  .degrade-accent { background-image: linear-gradient(135deg, hsl(243 75% 59%), hsl(271 76% 58%) 55%, hsl(316 70% 58%)); }
+  /* Dégradé de marque : indigo → violet → magenta (bandeaux, cartes vedettes). */
+  .degrade-accent { background-image: linear-gradient(135deg, hsl(252 85% 58%), hsl(280 85% 56%) 52%, hsl(322 88% 57%)); }
+  /* Bouton principal : violet → magenta, avec reflet animé au survol. */
+  .degrade-bouton {
+    background-image: linear-gradient(100deg, hsl(282 88% 58%), hsl(322 90% 57%) 60%, hsl(338 92% 60%));
+    background-size: 160% 100%;
+    background-position: 0% 0;
+    transition: background-position .5s ease, box-shadow .3s ease, filter .2s ease;
+  }
+  .degrade-bouton:hover { background-position: 100% 0; }
+  .texte-degrade { background-image: linear-gradient(100deg, hsl(var(--cyan)), hsl(var(--accent)) 45%, hsl(var(--magenta))); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .barre-defilement::-webkit-scrollbar { width: 10px; height: 10px; }
   .barre-defilement::-webkit-scrollbar-thumb { background: hsl(var(--bordure)); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
 }

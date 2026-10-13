@@ -7,7 +7,8 @@ import { Badge, Carte, Onglets } from '@/components/ui';
 import { valeur as fv, nombre } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-const PALETTE = ['hsl(243 75% 60%)', 'hsl(316 70% 58%)', 'hsl(170 65% 42%)', 'hsl(32 92% 52%)', 'hsl(205 85% 52%)', 'hsl(271 70% 62%)', 'hsl(352 75% 58%)'];
+// Séries des graphiques : violet, magenta, cyan, puis couleurs contrastées.
+const PALETTE = ['hsl(var(--accent))', 'hsl(var(--magenta))', 'hsl(var(--cyan))', 'hsl(170 65% 42%)', 'hsl(32 92% 52%)', 'hsl(252 80% 62%)', 'hsl(352 75% 58%)'];
 
 function CarteResultat({ cle, v, vedette }: { cle: string; v: ValeurResultat; vedette?: boolean }) {
   const negatif = v.valeur.startsWith('-');
@@ -15,7 +16,7 @@ function CarteResultat({ cle, v, vedette }: { cle: string; v: ValeurResultat; ve
     <div
       className={cn(
         'group relative overflow-hidden rounded-2xl border p-4 transition-shadow',
-        vedette ? 'border-transparent degrade-accent text-white shadow-[0_14px_40px_-14px_hsl(243_75%_55%/.75)]' : 'border-bordure bg-surface shadow-carte',
+        vedette ? 'border-transparent degrade-accent text-white shadow-[0_14px_40px_-14px_hsl(var(--accent)/.75)]' : 'border-bordure bg-surface shadow-carte',
       )}
     >
       {vedette && <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-white/15 blur-2xl" />}

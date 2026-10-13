@@ -28,6 +28,8 @@ const chien = setTimeout(() => {
 }, DELAI_GLOBAL);
 
 const erreursConsole = [];
+/** Session partagée : une seule connexion par exécution (la route d'authentification est limitée à 20 essais / 15 min). */
+let session = null;
 const echecs = [];
 
 async function connecter(contexte) {
@@ -45,7 +47,7 @@ async function nouvellePage(navigateur, { sombre = false, mobile = false, connec
     colorScheme: sombre ? 'dark' : 'light',
   });
   await contexte.addInitScript((t) => localStorage.setItem('theme', t), sombre ? 'dark' : 'light');
-  if (connecte) await connecter(contexte);
+  if (connecte) await contexte.addCookies(session);
   const page = await contexte.newPage();
   page.setDefaultTimeout(DELAI_ACTION);
   page.setDefaultNavigationTimeout(DELAI_NAVIGATION);
@@ -94,12 +96,20 @@ async function formule(page, route, nom, opts) {
     // Le compte de démonstration doit exister pour que l'écran montre la connexion, pas le premier démarrage.
     const prepa = await navigateur.newContext();
     await connecter(prepa);
+    session = await prepa.cookies();
     await prepa.close();
     const anonyme = await nouvellePage(navigateur, { connecte: false });
     await etape('connexion', async () => {
       await aller(anonyme, '/connexion');
       await anonyme.locator('form').waitFor();
+      await anonyme.waitForTimeout(1500); // animations d'entrée
       await capturer(anonyme, '01-connexion');
+    });
+    await etape('inscription', async () => {
+      await anonyme.getByRole('button', { name: /^S’inscrire$/ }).click();
+      await anonyme.getByPlaceholder('Nom complet').waitFor();
+      await anonyme.waitForTimeout(1200);
+      await capturer(anonyme, '01b-inscription');
     });
     await anonyme.context().close();
 
@@ -160,6 +170,14 @@ async function formule(page, route, nom, opts) {
     const m = await nouvellePage(navigateur, { mobile: true });
     await etape('mobile', () => formule(m, '/calcul/tva/ht-ttc', '13-mobile', { pleinePage: true }));
     await m.context().close();
+    const mc = await nouvellePage(navigateur, { mobile: true, connecte: false });
+    await etape('connexion mobile', async () => {
+      await aller(mc, '/connexion');
+      await mc.locator('form').waitFor();
+      await mc.waitForTimeout(1500);
+      await capturer(mc, '14-mobile-connexion', { pleinePage: true });
+    });
+    await mc.context().close();
   } finally {
     await navigateur.close();
     clearTimeout(chien);

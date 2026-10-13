@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 type Variante = 'primaire' | 'secondaire' | 'fantome' | 'danger';
 const VARIANTES: Record<Variante, string> = {
-  primaire: 'degrade-accent text-white shadow-[0_6px_20px_-6px_hsl(243_75%_55%/.6)] hover:brightness-110',
+  primaire: 'degrade-bouton text-white shadow-[0_8px_24px_-8px_hsl(var(--magenta)/.65)] hover:shadow-[0_10px_30px_-8px_hsl(var(--magenta)/.8)]',
   secondaire: 'bg-surface border border-bordure hover:bg-surface-2 text-texte',
   fantome: 'hover:bg-surface-2 text-attenue hover:text-texte',
   danger: 'bg-danger/10 text-danger hover:bg-danger/15',

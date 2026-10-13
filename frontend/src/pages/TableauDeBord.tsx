@@ -9,6 +9,7 @@ import { useCatalogue, useSession, useStatistiques } from '@/hooks/useDonnees';
 import { Badge, Carte, Squelette } from '@/components/ui';
 import { apparence, pastille } from '@/lib/moteurs';
 import { dateCourte, dateHeure } from '@/lib/format';
+import { OndeFluide } from '@/components/OndeFluide';
 
 const RACCOURCIS: [string, string][] = [
   ['tva', 'ht-ttc'],
@@ -47,9 +48,10 @@ export function PageTableauDeBord() {
 
   return (
     <div className="space-y-8 animate-apparition">
-      <section className="relative overflow-hidden rounded-[22px] degrade-accent p-6 text-white shadow-[0_24px_60px_-24px_hsl(243_75%_50%/.8)] sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-24 size-80 rounded-full bg-white/15 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 right-1/3 size-56 rounded-full bg-fuchsia-300/20 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[22px] degrade-accent p-6 text-white shadow-[0_24px_60px_-24px_hsl(var(--accent)/.8)] sm:p-8">
+        <OndeFluide className="pointer-events-none absolute inset-0 opacity-70 mix-blend-screen [mask-image:linear-gradient(to_right,transparent_35%,black_80%)]" />
+        <div className="pointer-events-none absolute -right-16 -top-24 size-80 rounded-full bg-white/15 blur-3xl animate-derive" />
+        <div className="pointer-events-none absolute bottom-0 right-1/3 size-56 rounded-full bg-[#22d3ee]/20 blur-3xl animate-derive [animation-delay:-8s]" />
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 text-[13px] font-medium text-white/80">
@@ -90,13 +92,13 @@ export function PageTableauDeBord() {
                 <AreaChart data={activite}>
                   <defs>
                     <linearGradient id="degrade" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(243 75% 60%)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="hsl(243 75% 60%)" stopOpacity={0} />
+                      <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="jour" stroke="hsl(var(--attenue))" fontSize={11} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={8} />
                   <Tooltip contentStyle={{ background: 'hsl(var(--surface))', border: '1px solid hsl(var(--bordure))', borderRadius: 12, fontSize: 12 }} formatter={(v: number) => [v, 'Calculs']} />
-                  <Area type="monotone" dataKey="n" stroke="hsl(243 75% 60%)" strokeWidth={2.4} fill="url(#degrade)" />
+                  <Area type="monotone" dataKey="n" stroke="hsl(var(--accent))" strokeWidth={2.4} fill="url(#degrade)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
