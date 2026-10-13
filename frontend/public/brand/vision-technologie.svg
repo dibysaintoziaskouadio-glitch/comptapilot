@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
+  <title>Vision Technologie</title>
+  <rect width="1200" height="1200" fill="#0f172a"/>
+  <circle cx="600" cy="323" r="48" fill="#14b8a6"/>
+  <g fill="#ffffff">
+    <path d="M278 315H452L561 546L378 567Z"/>
+    <path d="M748 315H921L842 515L643 537Z"/>
+    <path d="M396 608L581 587L600 627L620 582L823 560L678 924H522Z"/>
+  </g>
+</svg>

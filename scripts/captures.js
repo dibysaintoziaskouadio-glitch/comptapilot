@@ -107,6 +107,7 @@ async function formule(page, route, nom, opts) {
     await etape('tableau de bord', async () => {
       await aller(p, '/');
       await p.getByText(/moteurs/i).first().waitFor();
+      await p.waitForTimeout(1200); // fin de l'animation du graphique d'activité
       await capturer(p, '02-tableau-de-bord', { pleinePage: true });
     });
     await etape('bulletin', () => formule(p, '/calcul/paie/bulletin', '03-bulletin', { pleinePage: true }));
@@ -150,6 +151,7 @@ async function formule(page, route, nom, opts) {
     await etape('accueil sombre', async () => {
       await aller(s, '/');
       await s.getByText(/moteurs/i).first().waitFor();
+      await s.waitForTimeout(1200);
       await capturer(s, '12-sombre-accueil');
     });
     await s.context().close();

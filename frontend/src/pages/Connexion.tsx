@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CheckCircle2, Lock, Mail, User } from 'lucide-react';
 import { api, ErreurApi } from '@/lib/api';
 import { Bouton, Champ } from '@/components/ui';
+import { LogoVision, MARQUE } from '@/components/Marque';
 
 const ATOUTS = [
   '163 formules comptables, fiscales et sociales',
@@ -43,12 +44,11 @@ export function PageConnexion() {
         <div className="pointer-events-none absolute -left-24 top-1/3 size-96 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-fuchsia-300/20 blur-3xl" />
         <div className="relative flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-2xl bg-white/15 backdrop-blur">
-            <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 17l5-6 4 3 7-9" />
-            </svg>
+          <LogoVision className="size-12 rounded-2xl shadow-[0_10px_30px_-10px_rgb(0_0_0/.6)] ring-1 ring-white/25" />
+          <div className="leading-tight">
+            <p className="text-xl font-bold tracking-tight">Comptapilot</p>
+            <p className="text-[12.5px] text-white/75">par {MARQUE.societe}</p>
           </div>
-          <span className="text-xl font-bold tracking-tight">Comptapilot</span>
         </div>
         <div className="relative max-w-xl">
           <h1 className="text-[44px] font-bold leading-[1.05] tracking-tight">Le comptable ne calcule plus. Il vérifie et il valide.</h1>
@@ -75,7 +75,14 @@ export function PageConnexion() {
           ))}
         </div>
       </div>
-      <div className="flex items-center justify-center p-6 fond-grille">
+      <div className="flex flex-col items-center justify-center gap-6 p-6 fond-grille">
+        <div className="flex items-center gap-3 lg:hidden">
+          <LogoVision className="size-11" />
+          <div className="leading-tight">
+            <p className="text-lg font-bold tracking-tight">Comptapilot</p>
+            <p className="text-[12px] text-attenue">par {MARQUE.societe}</p>
+          </div>
+        </div>
         <form onSubmit={soumettre} className="carte w-full max-w-md p-8 shadow-flottant animate-apparition">
           <h2 className="text-2xl font-bold tracking-tight">{etat.data?.premierDemarrage ? 'Créer le compte administrateur' : inscription ? 'Créer un compte' : 'Bon retour'}</h2>
           <p className="mt-1.5 text-sm text-attenue">{etat.data?.premierDemarrage ? 'Premier démarrage : ce compte administrera l’application.' : inscription ? 'Quelques secondes suffisent.' : 'Connectez-vous pour accéder aux moteurs de calcul.'}</p>
@@ -109,6 +116,7 @@ export function PageConnexion() {
             </p>
           )}
         </form>
+        <p className="text-[12px] text-attenue">© {new Date().getFullYear()} {MARQUE.societe} · Tous droits réservés</p>
       </div>
     </div>
   );

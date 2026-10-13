@@ -1,4 +1,8 @@
+<img src="frontend/public/brand/vision-technologie.svg" alt="Vision Technologie" width="72" />
+
 # Comptapilot
+
+*Édité par **Vision Technologie**.*
 
 Application web de calcul comptable, fiscal et social. **Le comptable ne calcule plus : il vérifie et il valide.**
 

@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { apparence, pastille } from '@/lib/moteurs';
 import { cn } from '@/lib/utils';
 import { PaletteCommandes } from './PaletteCommandes';
+import { LogoVision, MARQUE, MonogrammeVision } from '@/components/Marque';
 
 /** « Compte de démonstration » → « CD » ; un seul mot → ses deux premières lettres. */
 const initiales = (nom: string) => {
@@ -18,14 +19,10 @@ const initiales = (nom: string) => {
 function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="grid size-9 place-items-center rounded-xl degrade-accent shadow-[0_6px_18px_-6px_hsl(243_75%_55%/.7)]">
-        <svg viewBox="0 0 24 24" className="size-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 17l5-6 4 3 7-9" />
-        </svg>
-      </div>
+      <LogoVision className="size-9 shadow-[0_6px_18px_-8px_rgb(15_23_42/.8)] dark:ring-1 dark:ring-white/10" />
       <div className="leading-tight">
         <p className="font-bold tracking-tight">Comptapilot</p>
-        <p className="text-[11px] text-attenue">Moteur de calcul comptable</p>
+        <p className="text-[11px] text-attenue">par {MARQUE.societe}</p>
       </div>
     </div>
   );
@@ -96,6 +93,9 @@ export function Gabarit() {
           })}
         </div>
       </div>
+      <p className="mt-auto flex items-center gap-2 px-2.5 pt-2 text-[11px] text-attenue">
+        <MonogrammeVision className="size-3.5 text-texte" />© {new Date().getFullYear()} {MARQUE.societe}
+      </p>
     </nav>
   );
 

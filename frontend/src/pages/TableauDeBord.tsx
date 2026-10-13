@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, BadgeCheck, BookMarked, Calculator, ShieldAlert, Sparkles, Zap } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
@@ -41,6 +42,8 @@ export function PageTableauDeBord() {
   const baremes = useQuery({ queryKey: ['baremes'], queryFn: () => api<{ baremes: { obsolete: boolean; versions: { statut: string }[] }[] }>('/baremes') });
   const aVerifier = baremes.data?.baremes.filter((b) => b.obsolete || b.versions.some((v) => v.statut === 'a_verifier')).length ?? 0;
   const heure = new Date().getHours();
+  // Référence stable : un nouveau tableau à chaque rendu relancerait l'animation du graphique.
+  const activite = useMemo(() => stats.data?.parJour.map((x) => ({ ...x, jour: dateCourte(x.jour) })), [stats.data]);
 
   return (
     <div className="space-y-8 animate-apparition">
@@ -84,7 +87,7 @@ export function PageTableauDeBord() {
           <div className="mt-4 h-48">
             {stats.data ? (
               <ResponsiveContainer>
-                <AreaChart data={stats.data.parJour.map((x) => ({ ...x, jour: dateCourte(x.jour) }))}>
+                <AreaChart data={activite}>
                   <defs>
                     <linearGradient id="degrade" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(243 75% 60%)" stopOpacity={0.35} />
