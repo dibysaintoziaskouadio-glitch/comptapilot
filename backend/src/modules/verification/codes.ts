@@ -10,7 +10,7 @@ import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
 import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
 import { ErreurApi } from '../../utils/erreurs';
-import { canauxDisponibles, envoyer } from '../notifications/expediteur';
+import { canauxConfigures, canauxDisponibles, envoyer } from '../notifications/expediteur';
 import { messageCode } from '../notifications/messages';
 
 export const DUREE_MINUTES = 10;
@@ -40,7 +40,7 @@ interface Cible {
 export interface Envoi {
   canal: CanalCode;
   destination: string;
-  /** Code renvoyé seulement en mode démonstration. */
+  /** Code renvoyé seulement en mode démonstration, et seulement pour un canal sans fournisseur (jamais pour un vrai envoi). */
   codeDemo?: string;
 }
 
@@ -70,7 +70,7 @@ export async function envoyerCode(u: Cible, objet: ObjetCode, canal: CanalCode):
   } catch (e) {
     throw new ErreurApi(502, 'ENVOI_ECHOUE', `Le message n’a pas pu être envoyé (${(e as Error).message.slice(0, 120)}).`);
   }
-  return { canal, destination, ...(env.CODES_VISIBLES && { codeDemo: code }) };
+  return { canal, destination, ...(env.CODES_VISIBLES && !canauxConfigures()[canal] && { codeDemo: code }) };
 }
 
 /** Vérifie le dernier code actif de l'objet ; le consomme s'il est juste. */
