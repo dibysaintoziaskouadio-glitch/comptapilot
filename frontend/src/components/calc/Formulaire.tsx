@@ -217,7 +217,7 @@ export function Formulaire({ champs, valeurs, onChange, erreurs }: { champs: Cha
                 const err = erreurs[c.nom];
                 if (c.type === 'booleen')
                   return (
-                    <div key={c.nom} className="flex items-center justify-between gap-3 rounded-xl border border-bordure bg-surface-2/50 px-3 py-2.5 sm:col-span-2">
+                    <div key={c.nom} className="flex items-center justify-between gap-3 rounded-xl border border-bordure bg-surface-2 px-3 py-2.5 sm:col-span-2">
                       <span className="text-[13px] font-medium">{texteMoteur(c.libelle)}</span>
                       <Interrupteur actif={!!valeurs[c.nom]} onChange={(v) => maj(c.nom, v)} libelle={c.libelle} />
                     </div>

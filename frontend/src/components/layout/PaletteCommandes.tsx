@@ -56,7 +56,7 @@ export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFerm
   };
   return createPortal(
     <div className="fixed inset-0 z-50 bg-[hsl(232_40%_5%/.45)] p-4 pt-[12vh] backdrop-blur-sm animate-in fade-in" onMouseDown={onFermer}>
-      <div className="carte mx-auto max-w-2xl overflow-hidden shadow-flottant animate-apparition" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="carte carte-pleine mx-auto max-w-2xl overflow-hidden shadow-flottant animate-entree" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 border-b border-bordure px-4">
           <Search className="size-5 text-attenue" />
           <input

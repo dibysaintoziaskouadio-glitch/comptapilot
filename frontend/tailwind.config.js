@@ -13,6 +13,7 @@ export default {
       colors: {
         fond: 'hsl(var(--fond))',
         surface: 'hsl(var(--surface))',
+        'surface-pleine': 'hsl(var(--surface-pleine))',
         'surface-2': 'hsl(var(--surface-2))',
         bordure: 'hsl(var(--bordure))',
         texte: 'hsl(var(--texte))',
@@ -25,9 +26,9 @@ export default {
         danger: 'hsl(var(--danger))',
         info: 'hsl(var(--info))',
       },
-      borderRadius: { xl: '0.875rem', '2xl': '1.125rem' },
+      borderRadius: { xl: '0.875rem', '2xl': '1.125rem', '3xl': '1.5rem', '4xl': '2rem' },
       boxShadow: {
-        carte: '0 1px 2px hsl(var(--ombre) / 0.06), 0 4px 16px -4px hsl(var(--ombre) / 0.10)',
+        carte: 'inset 0 1px 0 hsl(0 0% 100% / .08), 0 20px 50px -28px hsl(var(--ombre) / .5)',
         flottant: '0 12px 40px -8px hsl(var(--ombre) / 0.30)',
       },
       keyframes: {
@@ -43,6 +44,8 @@ export default {
         flottement: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
         degrade: { '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
         halo: { '0%,100%': { opacity: 0.55, transform: 'scale(1)' }, '50%': { opacity: 1, transform: 'scale(1.06)' } },
+        balayage: { to: { transform: 'translateX(100%)' } },
+        page: { from: { opacity: 0, transform: 'translateY(10px) scale(.995)', filter: 'blur(4px)' }, to: { opacity: 1, transform: 'none', filter: 'none' } },
       },
       animation: {
         apparition: 'apparition .35s ease-out both',
@@ -54,6 +57,7 @@ export default {
         degrade: 'degrade 14s ease-in-out infinite',
         halo: 'halo 3.2s ease-in-out infinite',
         'rotation-lente': 'spin 9s linear infinite',
+        page: 'page .5s cubic-bezier(.2,.7,.2,1) both',
       },
     },
   },

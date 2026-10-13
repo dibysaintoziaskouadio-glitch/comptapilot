@@ -18,7 +18,8 @@
     <script>
       try {
         const t = localStorage.getItem('theme');
-        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        // Thème sombre par défaut (style « verre ») ; le thème clair reste au choix de l'utilisateur.
+        if (t !== 'light') document.documentElement.classList.add('dark');
       } catch {}
     </script>
   </head>

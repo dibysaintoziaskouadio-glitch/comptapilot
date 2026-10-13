@@ -35,7 +35,7 @@ export function MenuPreferences() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOuvert((o) => !o)}
-        className={cn('flex h-10 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-semibold text-attenue transition-colors hover:bg-surface-2 hover:text-texte', ouvert && 'bg-surface-2 text-texte')}
+        className={cn('carte flex h-12 items-center gap-1.5 rounded-2xl px-3.5 text-[13px] font-semibold text-attenue transition-all duration-300 hover:border-accent/40 hover:text-texte', ouvert && 'text-texte ring-1 ring-accent/40')}
         aria-label={t('prefs.titre')}
         aria-expanded={ouvert}
         title={t('prefs.titre')}
@@ -47,7 +47,7 @@ export function MenuPreferences() {
       </button>
 
       {ouvert && (
-        <div className="absolute right-0 top-12 z-40 w-[min(92vw,340px)] carte p-4 shadow-flottant animate-in fade-in slide-in-from-top-1" role="dialog" aria-label={t('prefs.titre')}>
+        <div className="absolute right-0 top-14 z-40 w-[min(92vw,340px)] carte carte-pleine p-4 shadow-flottant animate-in fade-in slide-in-from-top-1" role="dialog" aria-label={t('prefs.titre')}>
           <p className="font-display text-[15px] font-semibold">{t('prefs.titre')}</p>
 
           <p className="mb-1.5 mt-4 text-[11px] font-semibold uppercase tracking-wider text-attenue">{t('prefs.langue')}</p>

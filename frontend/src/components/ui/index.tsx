@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 type Variante = 'primaire' | 'secondaire' | 'fantome' | 'danger';
 const VARIANTES: Record<Variante, string> = {
   primaire: 'degrade-bouton text-white shadow-[0_8px_24px_-8px_hsl(var(--magenta)/.65)] hover:shadow-[0_10px_30px_-8px_hsl(var(--magenta)/.8)]',
-  secondaire: 'bg-surface border border-bordure hover:bg-surface-2 text-texte',
+  secondaire: 'bg-surface-2 border border-bordure backdrop-blur hover:bg-accent-doux hover:border-accent/40 text-texte',
   fantome: 'hover:bg-surface-2 text-attenue hover:text-texte',
   danger: 'bg-danger/10 text-danger hover:bg-danger/15',
 };
@@ -17,7 +17,7 @@ export const Bouton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
       ref={ref}
       disabled={disabled || chargement}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap',
+        'inline-flex items-center justify-center gap-2 rounded-2xl font-medium transition-all duration-300 active:scale-[.97] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap',
         taille === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-10 px-4 text-sm',
         VARIANTES[variante],
         className,
@@ -37,7 +37,7 @@ export const Champ = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'h-10 w-full rounded-xl border bg-surface px-3 text-sm text-texte placeholder:text-attenue/70 transition-colors focus:outline-none focus:ring-4',
+        'h-10 w-full rounded-2xl border bg-surface-2 px-3.5 text-sm text-texte placeholder:text-attenue/70 transition-all duration-300 focus:outline-none focus:ring-4',
         invalide ? 'border-danger focus:ring-danger/15' : 'border-bordure focus:border-accent focus:ring-accent/15',
         suffixe && 'pr-10',
         className,
@@ -69,19 +69,22 @@ export function Interrupteur({ actif, onChange, libelle }: { actif: boolean; onC
 }
 
 export function Squelette({ className }: { className?: string }) {
-  return <div className={cn('animate-pulsation rounded-xl bg-surface-2', className)} />;
+  return <div className={cn('relative overflow-hidden rounded-3xl bg-surface-2 before:absolute before:inset-0 before:-translate-x-full before:animate-[balayage_1.6s_ease-in-out_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent', className)} />;
 }
 
 export function Onglets<T extends string>({ valeur, onChange, onglets }: { valeur: T; onChange: (v: T) => void; onglets: { id: T; libelle: ReactNode; compte?: number }[] }) {
   return (
-    <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1">
+    <div role="tablist" className="flex flex-wrap gap-1 rounded-2xl border border-bordure bg-[hsl(var(--ombre)/.18)] p-1">
       {onglets.map((o) => (
         <button
           key={o.id}
           role="tab"
           aria-selected={valeur === o.id}
           onClick={() => onChange(o.id)}
-          className={cn('flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all', valeur === o.id ? 'bg-surface text-texte shadow-carte' : 'text-attenue hover:text-texte')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-[13px] font-medium transition-all duration-300',
+            valeur === o.id ? 'bg-surface-2 text-texte shadow-[inset_0_1px_0_hsl(0_0%_100%/.12),0_6px_18px_-8px_hsl(var(--ombre)/.6)]' : 'text-attenue hover:text-texte',
+          )}
         >
           {o.libelle}
           {o.compte !== undefined && o.compte > 0 && <span className="rounded-full bg-accent-doux px-1.5 text-[10px] font-bold text-accent-texte">{o.compte}</span>}
@@ -101,7 +104,7 @@ export function Dialogue({ ouvert, onFermer, titre, children, large, libelleFerm
   if (!ouvert) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[hsl(232_40%_5%/.45)] p-4 pt-[10vh] backdrop-blur-sm animate-in fade-in" onMouseDown={onFermer}>
-      <div role="dialog" aria-modal className={cn('carte w-full animate-apparition shadow-flottant', large ? 'max-w-3xl' : 'max-w-lg')} onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal className={cn('carte carte-pleine w-full animate-entree shadow-flottant', large ? 'max-w-3xl' : 'max-w-lg')} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-bordure px-5 py-4">
           <h2 className="font-semibold">{titre}</h2>
           <button onClick={onFermer} className="rounded-lg p-1 text-attenue hover:bg-surface-2" aria-label={libelleFermer}>

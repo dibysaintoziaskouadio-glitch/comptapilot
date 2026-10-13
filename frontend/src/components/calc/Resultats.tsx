@@ -69,7 +69,7 @@ function ListeValeurs({ r }: { r: ResultatCalcul }) {
           {groupes.length > 1 && <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-attenue">{g}</p>}
           <dl className="divide-y divide-bordure overflow-hidden rounded-xl border border-bordure">
             {vs.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between gap-4 px-4 py-2.5 hover:bg-surface-2/50">
+              <div key={k} className="flex items-center justify-between gap-4 px-4 py-2.5 hover:bg-surface-2">
                 <dt className="text-[13px] text-attenue">{texteMoteur(v.libelle)}</dt>
                 <dd className={cn('text-right text-[13.5px] font-semibold chiffre', v.unite === 'texte' && 'max-w-[60%] font-medium', v.valeur.startsWith('-') && v.unite === 'EUR' && 'text-danger')}>{fv(v.valeur, v.unite)}</dd>
               </div>
@@ -113,7 +113,7 @@ function Graphique({ t }: { t: Tableau }) {
       <XAxis dataKey={g.x} {...axe} />
       <YAxis {...axe} width={70} tickFormatter={(v: number) => nombre(String(Math.round(v)))} />
       <Tooltip
-        contentStyle={{ background: 'hsl(var(--surface))', border: '1px solid hsl(var(--bordure))', borderRadius: 12, fontSize: 12 }}
+        contentStyle={{ background: 'hsl(var(--surface-pleine) / .95)', border: '1px solid hsl(var(--bordure))', borderRadius: 14, fontSize: 12, backdropFilter: 'blur(12px)', boxShadow: '0 16px 40px -16px rgb(0 0 0 / .5)' }}
         formatter={(v: number, n: string) => [nombre(String(v), 0, 2), nom(n)]}
       />
       {g.series.length > 1 && <Legend formatter={nom} wrapperStyle={{ fontSize: 12 }} />}
@@ -188,7 +188,7 @@ function Tableaux({ r }: { r: ResultatCalcul }) {
               </thead>
               <tbody>
                 {t.lignes.map((l, k) => (
-                  <tr key={k} className="border-t border-bordure hover:bg-surface-2/40">
+                  <tr key={k} className="border-t border-bordure hover:bg-surface-2">
                     {t.colonnes.map((c) => (
                       <td key={c.cle} className={cn('px-2 py-1.5 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
                         {l[c.cle] === undefined || l[c.cle] === '' ? '' : fv(l[c.cle], c.unite)}
@@ -198,7 +198,7 @@ function Tableaux({ r }: { r: ResultatCalcul }) {
                 ))}
               </tbody>
               {t.totaux && (
-                <tfoot className="border-t-2 border-bordure bg-surface-2/60 font-semibold">
+                <tfoot className="border-t-2 border-bordure bg-surface-2 font-semibold">
                   <tr>
                     {t.colonnes.map((c) => (
                       <td key={c.cle} className={cn('px-2 py-2 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
@@ -247,7 +247,7 @@ function Ecritures({ r }: { r: ResultatCalcul }) {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t border-bordure bg-surface-2/50 font-semibold">
+              <tfoot className="border-t border-bordure bg-surface-2 font-semibold">
                 <tr>
                   <td colSpan={2} className="px-4 py-1.5 text-[11.5px] text-succes">
                     <span className="inline-flex items-center gap-1">

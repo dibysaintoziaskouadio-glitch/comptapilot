@@ -81,7 +81,7 @@ export function PageHistorique() {
                 {liste.data?.calculs.map((c) => {
                   const a = apparence(c.moteur);
                   return (
-                    <tr key={c.id} className="border-t border-bordure hover:bg-surface-2/40">
+                    <tr key={c.id} className="border-t border-bordure hover:bg-surface-2">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="grid size-8 shrink-0 place-items-center rounded-lg" style={pastille(a.teinte)}>

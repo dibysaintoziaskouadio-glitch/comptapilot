@@ -6,49 +6,58 @@
 @tailwind utilities;
 
 @layer base {
-  /* Palette Comptapilot : indigo profond, violet, magenta et bleu cyan. */
+  /*
+   * Palette Comptapilot, style « verre » : fond violet profond éclairé de lueurs,
+   * panneaux translucides et floutés. Les surfaces portent leur transparence
+   * (« h s l / alpha ») : ne pas leur appliquer de modificateur d'opacité Tailwind.
+   */
   :root {
-    --fond: 250 45% 97.5%;
-    --surface: 0 0% 100%;
-    --surface-2: 250 40% 95.5%;
-    --bordure: 250 28% 89%;
-    --texte: 250 48% 12%;
-    --attenue: 250 15% 44%;
-    --accent: 268 82% 58%;
-    --accent-doux: 268 95% 96%;
-    --accent-texte: 268 70% 46%;
-    --magenta: 322 85% 56%;
-    --cyan: 200 95% 50%;
+    --fond: 262 45% 96%;
+    --surface: 0 0% 100% / 0.72;
+    --surface-2: 262 45% 45% / 0.07;
+    --surface-pleine: 0 0% 100%;
+    --bordure: 262 30% 45% / 0.16;
+    --texte: 266 45% 14%;
+    --attenue: 264 14% 42%;
+    --accent: 262 75% 56%;
+    --accent-doux: 262 90% 95%;
+    --accent-texte: 262 65% 44%;
+    --magenta: 318 80% 55%;
+    --cyan: 198 90% 48%;
     --succes: 158 64% 36%;
     --alerte: 32 95% 44%;
     --danger: 350 78% 52%;
     --info: 205 85% 45%;
-    --ombre: 255 50% 22%;
+    --ombre: 262 50% 25%;
     --pastille-l: 42%;
+    --scene: radial-gradient(60rem 40rem at 85% -10%, hsl(268 90% 85% / .55), transparent 60%), radial-gradient(50rem 36rem at -10% 110%, hsl(318 85% 88% / .45), transparent 60%), linear-gradient(160deg, hsl(262 60% 97%), hsl(270 45% 94%));
     color-scheme: light;
   }
   .dark {
-    --fond: 250 48% 7.5%;
-    --surface: 250 42% 12%;
-    --surface-2: 250 36% 16%;
-    --bordure: 250 30% 22%;
-    --texte: 250 40% 95%;
-    --attenue: 250 18% 68%;
-    --accent: 272 92% 68%;
-    --accent-doux: 272 50% 20%;
-    --accent-texte: 276 100% 82%;
-    --magenta: 322 90% 64%;
-    --cyan: 197 95% 60%;
-    --succes: 158 58% 50%;
-    --alerte: 38 92% 60%;
-    --danger: 350 85% 66%;
-    --info: 200 90% 64%;
-    --ombre: 255 70% 3%;
-    --pastille-l: 74%;
+    --fond: 268 40% 12%;
+    --surface: 0 0% 100% / 0.065;
+    --surface-2: 0 0% 100% / 0.07;
+    --surface-pleine: 268 34% 18%;
+    --bordure: 0 0% 100% / 0.1;
+    --texte: 270 40% 97%;
+    --attenue: 268 20% 76%;
+    --accent: 262 82% 66%;
+    --accent-doux: 264 45% 30% / 0.7;
+    --accent-texte: 262 100% 85%;
+    --magenta: 318 88% 66%;
+    --cyan: 196 92% 62%;
+    --succes: 156 62% 55%;
+    --alerte: 38 92% 62%;
+    --danger: 350 88% 70%;
+    --info: 200 90% 66%;
+    --ombre: 270 70% 3%;
+    --pastille-l: 76%;
+    --scene: radial-gradient(70rem 46rem at 88% -12%, hsl(276 62% 38% / .75), transparent 62%), radial-gradient(56rem 40rem at -8% 108%, hsl(300 60% 30% / .6), transparent 60%), radial-gradient(40rem 30rem at 45% 55%, hsl(255 60% 30% / .35), transparent 70%), linear-gradient(165deg, hsl(270 42% 17%), hsl(268 42% 12%) 55%, hsl(266 45% 9%));
     color-scheme: dark;
   }
   html { -webkit-font-smoothing: antialiased; }
-  body { @apply bg-fond text-texte font-sans; }
+  body { @apply text-texte font-sans; background: var(--scene) fixed, hsl(var(--fond)); min-height: 100vh; }
+  html { scroll-behavior: smooth; }
   /* Titres en Sora (géométrique), texte courant en Figtree (espaces et chiffres tabulaires adaptés aux montants). */
   h1, h2, h3, .titre { @apply font-display; letter-spacing: -0.022em; }
   ::selection { background: hsl(var(--accent) / 0.25); }
@@ -62,7 +71,20 @@
   .chiffre { font-variant-numeric: tabular-nums; }
   /* Grands montants : Sora à chiffres tabulaires. */
   .montant { @apply font-display; font-variant-numeric: tabular-nums; letter-spacing: -0.012em; }
-  .carte { @apply rounded-2xl border border-bordure bg-surface shadow-carte; }
+  /* Panneau de verre : translucide, flouté, liseré lumineux en haut. */
+  .carte {
+    @apply rounded-3xl border border-bordure shadow-carte;
+    background: linear-gradient(180deg, hsl(var(--surface)), hsl(var(--surface)));
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / .09), 0 24px 60px -30px hsl(var(--ombre) / .55);
+  }
+  .dark .carte { background: linear-gradient(180deg, hsl(0 0% 100% / .085), hsl(0 0% 100% / .045)); }
+  /* Variante opaque (menus, dialogues) pour rester lisible au-dessus du contenu. */
+  .carte-pleine { background: hsl(var(--surface-pleine) / .96) !important; }
+  /* Survol fluide des éléments cliquables. */
+  .souleve { transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease, border-color .35s ease; }
+  .souleve:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 hsl(0 0% 100% / .12), 0 30px 70px -30px hsl(var(--accent) / .45); }
   .fond-grille {
     background-image: radial-gradient(hsl(var(--bordure)) 1px, transparent 1px);
     background-size: 22px 22px;

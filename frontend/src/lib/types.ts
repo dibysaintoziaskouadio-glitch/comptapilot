@@ -19,6 +19,7 @@ export interface Utilisateur {
   role: 'ADMIN' | 'COMPTABLE' | 'LECTEUR';
   langue: 'fr' | 'en';
   devise: string;
+  telephone: string | null;
 }
 
 export interface CalculResume {
