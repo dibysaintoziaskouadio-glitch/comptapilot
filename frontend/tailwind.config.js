@@ -6,7 +6,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Inter Variable"', 'system-ui', 'sans-serif'],
+        sans: ['"Figtree Variable"', 'system-ui', 'sans-serif'],
+        display: ['"Sora Variable"', '"Figtree Variable"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono Variable"', 'ui-monospace', 'monospace'],
       },
       colors: {

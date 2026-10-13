@@ -15,7 +15,7 @@ const { chromium } = require('playwright-core');
 const BASE = process.argv[2] || 'http://localhost:5174';
 const SORTIE = process.env.CAPTURES_DIR || path.join(__dirname, '..', 'docs', 'screenshots');
 const CHROME = process.env.CHROME_PATH || '/usr/bin/google-chrome';
-const COMPTE = { nom: 'Compte de démonstration', email: 'demo@comptapilot.fr', motDePasse: 'demonstration-2026' };
+const COMPTE = { nom: 'Compte de démonstration', email: 'demo@comptapilot.fr', motDePasse: 'Comptapilot-2026!' };
 
 const DELAI_ACTION = 15_000;
 const DELAI_NAVIGATION = 20_000;
@@ -107,9 +107,23 @@ async function formule(page, route, nom, opts) {
     });
     await etape('inscription', async () => {
       await anonyme.getByRole('button', { name: /^S’inscrire$/ }).click();
-      await anonyme.getByPlaceholder('Nom complet').waitFor();
-      await anonyme.waitForTimeout(1200);
-      await capturer(anonyme, '01b-inscription');
+      await anonyme.getByPlaceholder('Camille', { exact: true }).waitFor();
+      await anonyme.waitForTimeout(1000);
+      await anonyme.getByPlaceholder('Camille', { exact: true }).fill('Camille');
+      await anonyme.getByPlaceholder('Martin', { exact: true }).fill('Martin');
+      await anonyme.getByPlaceholder('camille.martin@cabinet.fr').fill('camille.martin@cabinet.fr');
+      await anonyme.waitForTimeout(300);
+      await capturer(anonyme, '01b-inscription-identite');
+      await anonyme.getByRole('button', { name: /Continuer/ }).click();
+      const mdp = anonyme.getByPlaceholder('Choisissez un mot de passe');
+      await mdp.waitFor();
+      await mdp.pressSequentially('Compta2026', { delay: 15 });
+      await anonyme.waitForTimeout(900);
+      await capturer(anonyme, '01c-inscription-mot-de-passe');
+      await mdp.pressSequentially('#Bilan!', { delay: 15 });
+      await anonyme.getByPlaceholder('Saisissez-le à nouveau').fill('Compta2026#Bilan!');
+      await anonyme.waitForTimeout(900);
+      await capturer(anonyme, '01d-inscription-valide');
     });
     await anonyme.context().close();
 

@@ -58,9 +58,10 @@ describe('Arithmétique et arrondis', () => {
     expect(arrondiFiscal('0').toFixed()).toBe('0');
   });
   test('formatage français', () => {
-    expect(fr('1234567.891')).toBe('1 234 567,89');
+    // Groupement par espace insécable normale (U+00A0), visible dans les polices de l'interface.
+    expect(fr('1234567.891')).toBe('1\u00a0234\u00a0567,89');
     expect(fr('-5')).toBe('−5,00');
-    expect(fp('0.055')).toBe('5,5 %');
+    expect(fp('0.055')).toBe('5,5\u00a0%');
   });
 });
 

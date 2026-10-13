@@ -29,7 +29,7 @@ function Kpi({ icone, libelle, valeur, detail }: { icone: React.ReactNode; libel
         <p className="text-[13px] font-medium text-attenue">{libelle}</p>
         <div className="grid size-9 place-items-center rounded-xl bg-accent-doux text-accent-texte">{icone}</div>
       </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight chiffre">{valeur}</p>
+      <p className="mt-3 text-3xl font-semibold montant">{valeur}</p>
       {detail && <p className="mt-1 text-[12px] text-attenue">{detail}</p>}
     </Carte>
   );

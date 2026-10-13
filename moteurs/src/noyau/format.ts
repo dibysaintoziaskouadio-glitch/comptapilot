@@ -1,7 +1,8 @@
 /** Mise en forme française des valeurs dans les traces de calcul. */
 import { d, Decimal, Valeur } from './decimal';
 
-const ESPACE = ' ';
+// Espace insécable normale (U+00A0) : l'espace fine (U+202F) est quasi invisible dans les polices d'interface.
+const ESPACE = '\u00a0';
 
 function grouper(entier: string): string {
   return entier.replace(/\B(?=(\d{3})+(?!\d))/g, ESPACE);

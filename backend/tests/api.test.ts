@@ -29,23 +29,32 @@ describe('Authentification', () => {
     expect(r.status).toBe(401);
   });
   test('le premier compte est administrateur', async () => {
-    const r = await admin.post('/api/auth/inscription').send({ email: 'Admin@Cabinet.fr', nom: 'Admin', motDePasse: 'motdepasse-solide' });
+    const r = await admin.post('/api/auth/inscription').send({ email: 'Admin@Cabinet.fr', nom: 'Admin', motDePasse: 'Grand-Livre#2026' });
     expect(r.status).toBe(201);
     expect(r.body.utilisateur).toMatchObject({ email: 'admin@cabinet.fr', role: 'ADMIN' });
     expect(r.headers['set-cookie'][0]).toMatch(/compta_session=.*HttpOnly/);
   });
   test('les comptes suivants sont comptables', async () => {
-    const r = await comptable.post('/api/auth/inscription').send({ email: 'compta@cabinet.fr', nom: 'Camille', motDePasse: 'autre-motdepasse' });
+    const r = await comptable.post('/api/auth/inscription').send({ email: 'compta@cabinet.fr', nom: 'Camille', motDePasse: 'Balance&Bilan-42' });
     expect(r.body.utilisateur.role).toBe('COMPTABLE');
   });
   test('validation des données et identifiants incorrects', async () => {
     expect((await request(app).post('/api/auth/inscription').send({ email: 'x', nom: 'A', motDePasse: 'court' })).status).toBe(422);
     expect((await request(app).post('/api/auth/connexion').send({ email: 'admin@cabinet.fr', motDePasse: 'mauvais' })).status).toBe(401);
-    expect((await request(app).post('/api/auth/inscription').send({ email: 'admin@cabinet.fr', nom: 'Bis', motDePasse: 'motdepasse-solide' })).status).toBe(409);
+    expect((await request(app).post('/api/auth/inscription').send({ email: 'admin@cabinet.fr', nom: 'Bis', motDePasse: 'Grand-Livre#2026' })).status).toBe(409);
+  });
+  test('politique de mot de passe à l’inscription', async () => {
+    const essai = (motDePasse: string, nom = 'Dominique Martin') => request(app).post('/api/auth/inscription').send({ email: 'dominique.martin@cabinet.fr', nom, motDePasse });
+    for (const faible of ['Court#1a', 'sansmajuscule#2026', 'SANSMINUSCULE#2026', 'SansChiffre#Ici', 'SansSpecial2026x', 'Martin-Compta#2026']) {
+      const r = await essai(faible);
+      expect(r.status).toBe(422);
+      expect(r.body.erreur.details[0].champ).toBe('motDePasse');
+    }
+    expect((await essai('Dominique#Paie-2026')).body.erreur.details[0].message).toMatch(/nom ni votre e-mail/);
   });
   test('connexion et session', async () => {
     const a = request.agent(app);
-    expect((await a.post('/api/auth/connexion').send({ email: 'compta@cabinet.fr', motDePasse: 'autre-motdepasse' })).status).toBe(200);
+    expect((await a.post('/api/auth/connexion').send({ email: 'compta@cabinet.fr', motDePasse: 'Balance&Bilan-42' })).status).toBe(200);
     expect((await a.get('/api/auth/moi')).body.utilisateur.nom).toBe('Camille');
   });
 });

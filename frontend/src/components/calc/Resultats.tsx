@@ -21,7 +21,7 @@ function CarteResultat({ cle, v, vedette }: { cle: string; v: ValeurResultat; ve
     >
       {vedette && <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-white/15 blur-2xl" />}
       <p className={cn('text-[12.5px] font-medium', vedette ? 'text-white/80' : 'text-attenue')}>{v.libelle}</p>
-      <p className={cn('mt-1.5 break-words font-semibold tracking-tight chiffre', vedette ? 'text-[28px] leading-tight' : 'text-[22px]', !vedette && negatif && 'text-danger')}>{fv(v.valeur, v.unite)}</p>
+      <p className={cn('mt-1.5 break-words font-semibold montant', vedette ? 'text-[28px] leading-tight' : 'text-[22px]', !vedette && negatif && 'text-danger')}>{fv(v.valeur, v.unite)}</p>
       <button
         onClick={() => {
           navigator.clipboard?.writeText(v.valeur);
@@ -166,11 +166,11 @@ function Tableaux({ r }: { r: ResultatCalcul }) {
           </div>
           {t.graphique && t.lignes.length > 1 && <Graphique t={t} />}
           <div className="max-h-[460px] overflow-auto rounded-xl border border-bordure barre-defilement">
-            <table className="w-full text-[12.5px]">
+            <table className="w-full text-[12px]">
               <thead className="sticky top-0 bg-surface-2 text-[11.5px] text-attenue">
                 <tr>
                   {t.colonnes.map((c) => (
-                    <th key={c.cle} className={cn('whitespace-nowrap px-3 py-2 font-medium', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'text-right')}>
+                    <th key={c.cle} className={cn('whitespace-nowrap px-2 py-2 font-medium', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'text-right')}>
                       {c.libelle}
                     </th>
                   ))}
@@ -180,7 +180,7 @@ function Tableaux({ r }: { r: ResultatCalcul }) {
                 {t.lignes.map((l, k) => (
                   <tr key={k} className="border-t border-bordure hover:bg-surface-2/40">
                     {t.colonnes.map((c) => (
-                      <td key={c.cle} className={cn('px-3 py-1.5 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
+                      <td key={c.cle} className={cn('px-2 py-1.5 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
                         {l[c.cle] === undefined || l[c.cle] === '' ? '' : fv(l[c.cle], c.unite)}
                       </td>
                     ))}
@@ -191,7 +191,7 @@ function Tableaux({ r }: { r: ResultatCalcul }) {
                 <tfoot className="border-t-2 border-bordure bg-surface-2/60 font-semibold">
                   <tr>
                     {t.colonnes.map((c) => (
-                      <td key={c.cle} className={cn('px-3 py-2 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
+                      <td key={c.cle} className={cn('px-2 py-2 chiffre', c.unite === 'texte' || c.unite === 'date' ? 'text-left' : 'whitespace-nowrap text-right')}>
                         {t.totaux![c.cle] === undefined ? '' : /^-?\d/.test(t.totaux![c.cle]) ? fv(t.totaux![c.cle], c.unite) : t.totaux![c.cle]}
                       </td>
                     ))}

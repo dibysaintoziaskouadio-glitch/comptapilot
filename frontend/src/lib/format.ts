@@ -13,7 +13,8 @@ export function nombre(v: string, decimalesMin = 0, decimalesMax = 6): string {
   if (v === '' || v === undefined || v === null) return '';
   const [ent, dec = ''] = v.replace('-', '').split('.');
   const signe = v.startsWith('-') ? '−' : '';
-  const entierFormate = ent.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  // Espace insécable normale : l'espace fine est quasi invisible en Figtree et Sora.
+  const entierFormate = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
   const d = dec.slice(0, decimalesMax).replace(/0+$/, '').padEnd(decimalesMin, '0');
   return signe + entierFormate + (d ? ',' + d : '');
 }
@@ -21,21 +22,21 @@ export function nombre(v: string, decimalesMin = 0, decimalesMax = 6): string {
 export function valeur(v: string, unite?: Unite | string): string {
   switch (unite) {
     case 'EUR':
-      return `${nombre(v, 2, 2)} €`;
+      return `${nombre(v, 2, 2)}\u00a0€`;
     case 'devise':
       return nombre(v, 2, 2);
     case '%':
-      return `${nombre(v, 0, 4)} %`;
+      return `${nombre(v, 0, 4)}\u00a0%`;
     case 'jours':
-      return `${nombre(v)} j`;
+      return `${nombre(v)}\u00a0j`;
     case 'mois':
-      return `${nombre(v)} mois`;
+      return `${nombre(v)}\u00a0mois`;
     case 'annees':
-      return `${nombre(v, 0, 2)} an${Number(v) >= 2 ? 's' : ''}`;
+      return `${nombre(v, 0, 2)}\u00a0an${Number(v) >= 2 ? 's' : ''}`;
     case 'heures':
-      return `${nombre(v)} h`;
+      return `${nombre(v)}\u00a0h`;
     case 'fois':
-      return `${nombre(v, 0, 2)} ×`;
+      return `${nombre(v, 0, 2)}\u00a0×`;
     case 'date':
       return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.split('-').reverse().join('/') : v;
     case 'booleen':

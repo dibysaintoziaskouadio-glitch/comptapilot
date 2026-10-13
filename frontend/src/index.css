@@ -1,4 +1,5 @@
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/sora';
 @import '@fontsource-variable/jetbrains-mono';
 @tailwind base;
 @tailwind components;
@@ -47,7 +48,9 @@
     color-scheme: dark;
   }
   html { -webkit-font-smoothing: antialiased; }
-  body { @apply bg-fond text-texte font-sans; font-feature-settings: 'cv11', 'ss01'; }
+  body { @apply bg-fond text-texte font-sans; }
+  /* Titres en Sora (géométrique), texte courant en Figtree (espaces et chiffres tabulaires adaptés aux montants). */
+  h1, h2, h3, .titre { @apply font-display; letter-spacing: -0.022em; }
   ::selection { background: hsl(var(--accent) / 0.25); }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -57,6 +60,8 @@
 
 @layer components {
   .chiffre { font-variant-numeric: tabular-nums; }
+  /* Grands montants : Sora à chiffres tabulaires. */
+  .montant { @apply font-display; font-variant-numeric: tabular-nums; letter-spacing: -0.012em; }
   .carte { @apply rounded-2xl border border-bordure bg-surface shadow-carte; }
   .fond-grille {
     background-image: radial-gradient(hsl(var(--bordure)) 1px, transparent 1px);

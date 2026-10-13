@@ -8,12 +8,18 @@ import { limiteAuth } from '../../middlewares/limites';
 import { ErreurApi } from '../../utils/erreurs';
 import { valider } from '../../utils/validation';
 import { journaliser } from '../audit';
+import { defautsMotDePasse } from '../../utils/motDePasse';
 
-const schemaInscription = z.object({
-  email: z.string().trim().toLowerCase().email('Adresse e-mail invalide'),
-  nom: z.string().trim().min(2, 'Nom trop court').max(100),
-  motDePasse: z.string().min(10, 'Le mot de passe doit contenir au moins 10 caractères').max(200),
-});
+const schemaInscription = z
+  .object({
+    email: z.string().trim().toLowerCase().email('Adresse e-mail invalide'),
+    nom: z.string().trim().min(2, 'Nom trop court').max(100),
+    motDePasse: z.string().max(200),
+  })
+  .superRefine((d, ctx) => {
+    const defauts = defautsMotDePasse(d.motDePasse, d.nom, d.email);
+    if (defauts.length) ctx.addIssue({ code: 'custom', path: ['motDePasse'], message: `Mot de passe trop faible : ${defauts.join(', ')}.` });
+  });
 const schemaConnexion = z.object({ email: z.string().trim().toLowerCase().email(), motDePasse: z.string().min(1) });
 
 const optionsCookie = () => ({
