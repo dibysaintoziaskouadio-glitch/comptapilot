@@ -21,16 +21,34 @@ export const locale = () => (langue === 'fr' ? 'fr-FR' : 'en-GB');
 // Espace insécable normale en français : l'espace fine est quasi invisible en Figtree et Sora.
 const separateurs = () => (langue === 'fr' ? { groupe: ' ', decimale: ',' } : { groupe: ',', decimale: '.' });
 
-/** Arrondi commercial (demi vers le haut, en valeur absolue) d'une chaîne décimale à `n` décimales. */
+/** Ajoute 1 à un entier écrit en chiffres décimaux (« 1299 » → « 1300 »). */
+function incrementer(chiffres: string): string {
+  const a = chiffres.split('');
+  for (let i = a.length - 1; i >= 0; i--) {
+    if (a[i] !== '9') {
+      a[i] = String(Number(a[i]) + 1);
+      return a.join('');
+    }
+    a[i] = '0';
+  }
+  return '1' + a.join('');
+}
+
+/**
+ * Arrondi commercial (demi vers le haut, en valeur absolue) d'une chaîne décimale à `n` décimales.
+ * Calcul sur les chiffres, sans BigInt ni flottant : compatible avec les navigateurs anciens (iOS 13, vieux Android).
+ */
 export function arrondir(v: string, n: number): string {
   const m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(v.trim());
   if (!m) return v;
   const [, signe, ent = '0', dec = ''] = m;
-  const echelle = BigInt(`${ent || '0'}${dec.padEnd(n + 1, '0').slice(0, n + 1)}`);
-  const arrondi = (echelle + 5n) / 10n;
-  const s = arrondi.toString().padStart(n + 1, '0');
+  const chiffres = `${ent || '0'}${dec.padEnd(n + 1, '0').slice(0, n + 1)}`;
+  let corps = chiffres.slice(0, -1);
+  if (Number(chiffres.slice(-1)) >= 5) corps = incrementer(corps);
+  corps = corps.replace(/^0+(?=\d)/, '');
+  const s = corps.padStart(n + 1, '0');
   const r = n ? `${s.slice(0, -n)}.${s.slice(-n)}` : s;
-  return arrondi === 0n ? r : signe + r;
+  return /^0*$/.test(corps) ? r : signe + r;
 }
 
 /** Nombre décimal transmis en chaîne → affichage localisé, entre `decimalesMin` et `decimalesMax` décimales. */

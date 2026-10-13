@@ -51,8 +51,15 @@ export function formatDevise(code: string, langue: Langue): FormatDevise {
   const cle = `${code}-${langue}`;
   const connu = cache.get(cle);
   if (connu) return connu;
-  const nf = new Intl.NumberFormat(langue === 'fr' ? 'fr-FR' : 'en-GB', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' });
-  const parts = nf.formatToParts(1234.5);
+  const loc = langue === 'fr' ? 'fr-FR' : 'en-GB';
+  let nf: Intl.NumberFormat;
+  try {
+    nf = new Intl.NumberFormat(loc, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' });
+  } catch {
+    // Navigateurs antérieurs à 2020 : « narrowSymbol » inconnu.
+    nf = new Intl.NumberFormat(loc, { style: 'currency', currency: code });
+  }
+  const parts = typeof nf.formatToParts === 'function' ? nf.formatToParts(1234.5) : [];
   const iSymbole = parts.findIndex((p) => p.type === 'currency');
   const iNombre = parts.findIndex((p) => p.type === 'integer');
   const f: FormatDevise = {

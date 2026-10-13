@@ -17,7 +17,30 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Écran affiché tant que l'application se charge (remplacé par React au démarrage). -->
+    <div id="root">
+      <div id="demarrage" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(125deg,#3b2bd9,#7c2bf0 35%,#b026e8 65%,#e0309f);color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:24px">
+        <img src="/brand/vision-technologie.svg" alt="" width="64" height="64" style="border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.35)" />
+        <div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:tour 0.9s linear infinite"></div>
+        <p id="demarrage-texte" style="margin:0;font-size:14px;opacity:.85;max-width:360px;line-height:1.5">Chargement de Comptapilot…</p>
+      </div>
+      <style>@keyframes tour{to{transform:rotate(360deg)}}</style>
+    </div>
+    <script>
+      // Si l'application ne démarre pas, afficher la raison plutôt qu'une page blanche.
+      (function () {
+        var texte = function () { return document.getElementById('demarrage-texte'); };
+        var signaler = function (msg) {
+          var t = texte();
+          if (t) t.innerHTML = '<strong>Comptapilot n’a pas pu démarrer.</strong><br>' + msg + '<br><br><small>Essayez une version récente de Chrome, Safari, Firefox ou Edge, puis rechargez la page.</small>';
+        };
+        window.addEventListener('error', function (e) { signaler('Erreur : ' + (e.message || 'script non chargé')); });
+        setTimeout(function () {
+          var t = texte();
+          if (t) t.textContent = 'Connexion lente, chargement en cours… Merci de patienter.';
+        }, 8000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
