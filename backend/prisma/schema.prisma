@@ -40,6 +40,10 @@ model Utilisateur {
   role         Role      @default(COMPTABLE)
   langue       String    @default("fr")   /// Langue de l'interface (fr, en)
   devise       String    @default("EUR")  /// Monnaie d'affichage (code ISO 4217)
+  telephone    String?   @unique          /// Numéro au format international E.164 (+2250701020304)
+  emailVerifieLe     DateTime?            /// Adresse confirmée par code
+  telephoneVerifieLe DateTime?            /// Numéro confirmé par code (SMS ou WhatsApp)
+  codes        CodeVerification[]
   creeLe       DateTime  @default(now())
   derniereConnexion DateTime?
   calculs      Calcul[]
@@ -77,6 +81,36 @@ model Calcul {
   @@index([moteur, formuleId])
   @@index([empreinte])
   @@map("calculs")
+}
+
+enum ObjetCode {
+  VERIFICATION_EMAIL
+  VERIFICATION_TELEPHONE
+  REINITIALISATION
+}
+
+enum CanalCode {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+/// Codes à usage unique (confirmation d'inscription, mot de passe oublié). Seule l'empreinte HMAC du code est conservée.
+model CodeVerification {
+  id            String      @id @default(uuid())
+  utilisateurId String
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  objet         ObjetCode
+  canal         CanalCode
+  destination   String      /// Adresse ou numéro auquel le code a été envoyé
+  empreinte     String      /// HMAC-SHA256 du code
+  tentatives    Int         @default(0)
+  expireLe      DateTime
+  utiliseLe     DateTime?
+  creeLe        DateTime    @default(now())
+
+  @@index([utilisateurId, objet, creeLe])
+  @@map("codes_verification")
 }
 
 /// Base versionnée des taux et barèmes (historisation, application selon la date de l'opération).

@@ -13,7 +13,8 @@
     "test": "npm test -w moteurs",
     "docs": "npm run docs -w moteurs",
     "bench": "npm run bench -w moteurs",
-    "captures": "node scripts/captures.js"
+    "captures": "node scripts/captures.js",
+    "parcours": "node scripts/parcours-inscription.js"
   },
   "devDependencies": {
     "playwright-core": "^1.49.1"

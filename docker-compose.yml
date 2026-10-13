@@ -45,6 +45,20 @@ services:
       # Un saut (nginx) : l'adresse du client est lue dans X-Forwarded-For pour la limitation de débit.
       TRUST_PROXY: 1
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8090}
+      # Codes de vérification (inscription, mot de passe oublié).
+      # Sans fournisseur, CODES_VISIBLES=true affiche le code à l'écran (démonstration uniquement).
+      CODES_VISIBLES: ${CODES_VISIBLES:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_EXPEDITEUR: ${EMAIL_EXPEDITEUR:-Comptapilot <no-reply@comptapilot.local>}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
 
   frontend:
     build:

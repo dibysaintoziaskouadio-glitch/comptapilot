@@ -111,9 +111,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       descriptionMoteur: (m) => (prefs.langue === 'fr' ? m.description : (MOTEURS_EN[m.code]?.description ?? m.description)),
       erreur: (e) => {
         if (e instanceof ErreurApi) {
+          // Détails chiffrés joints par l'API (essais restants, secondes d'attente).
+          const d = e.details && !Array.isArray(e.details) ? (e.details as { restants?: number; secondes?: number }) : {};
+          if (e.code === 'CODE_INCORRECT' && typeof d.restants === 'number' && d.restants > 0) return t('api.CODE_INCORRECT_RESTANTS', { n: d.restants });
           const cle = `api.${e.code}` as Cle;
-          if (cle in fr) return t(cle);
-          return e.details?.[0]?.message ?? e.message;
+          if (cle in fr) return t(cle, { s: d.secondes ?? '' });
+          return e.champs[0]?.message ?? e.message;
         }
         return t('api.serveur');
       },

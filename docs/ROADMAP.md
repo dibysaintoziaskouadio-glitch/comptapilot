@@ -28,9 +28,10 @@ Objectif : pouvoir s'appuyer sur les résultats pour un dossier client.
    - `sectoriels.micro` : seuils et taux 2025-2026.
 2. **Recouper avec les références officielles.** Comparer un jeu de cas par moteur aux simulateurs publics (URSSAF, impots.gouv) et faire relire les exemples par un expert-comptable ; consigner l'origine de chaque valeur de référence dans les exemples.
 3. **Couverture à 100 % des formules critiques.** Bulletin de paie, CA3 et CA12, impôt sur les sociétés et acomptes, emprunts, plans d'amortissement : couvrir toutes les branches, y compris les refus d'entrées incohérentes. Couverture actuelle du moteur : 94,8 % des lignes, 74,2 % des branches.
-4. **Compléter le journal d'audit.** Tracer aussi les connexions, les suppressions de calculs et la validation directe à l'enregistrement (`POST /api/calc` avec `valider`), aujourd'hui non journalisées.
-5. **Procédure annuelle de mise à jour.** Calendrier (loi de finances et LFSS en décembre, arrêté PASS, revalorisation du SMIC), liste des barèmes concernés et contrôle que le tableau de bord n'affiche plus de barème à surveiller en début d'année.
-6. **Intégration continue.** Exécuter typecheck, tests du moteur et de l'API, construction Docker et captures à chaque modification ; refuser une baisse de couverture.
+4. **Compléter le journal d'audit.** Les connexions et réinitialisations sont tracées ; restent les suppressions de calculs et la validation directe à l'enregistrement (`POST /api/calc` avec `valider`).
+5. **Envoi réel des codes.** Configurer SMTP et Twilio (ou un fournisseur local de SMS), désactiver `CODES_VISIBLES`, faire valider un modèle de message WhatsApp ; invalider les sessions ouvertes après un changement de mot de passe (aujourd'hui, une session déjà ouverte reste valable jusqu'à son expiration).
+6. **Procédure annuelle de mise à jour.** Calendrier (loi de finances et LFSS en décembre, arrêté PASS, revalorisation du SMIC), liste des barèmes concernés et contrôle que le tableau de bord n'affiche plus de barème à surveiller en début d'année.
+7. **Intégration continue.** Exécuter typecheck, tests du moteur et de l'API, construction Docker et captures à chaque modification ; refuser une baisse de couverture.
 
 ## Étape 2 — Travailler par dossier
 
@@ -41,7 +42,7 @@ Objectif : passer du calcul isolé au dossier client.
 3. **Chaînage des calculs.** Utiliser un résultat comme entrée d'une autre formule (résultat fiscal → IS → acomptes ; balance → états financiers → ratios) avec propagation automatique des modifications.
 4. **Imports.** Balance et FEC depuis un fichier, tables (immobilisations, salariés, stocks) depuis un CSV, au lieu de la saisie ligne à ligne.
 5. **Recalcul comparatif.** Rejouer un calcul archivé avec les barèmes actuels et afficher les écarts, pour mesurer l'effet d'une loi de finances.
-6. **Administration des comptes.** Écran de gestion des utilisateurs (rôles, désactivation, réinitialisation du mot de passe) ; double authentification.
+6. **Administration des comptes.** Écran de gestion des utilisateurs (rôles, désactivation) ; double authentification par code à la connexion (la vérification par SMS, WhatsApp et e-mail existe déjà pour l'inscription et le mot de passe oublié).
 
 ## Étape 3 — Exploitation à plus grande échelle
 

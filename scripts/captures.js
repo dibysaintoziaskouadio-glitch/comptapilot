@@ -116,13 +116,15 @@ async function formule(page, route, nom, opts) {
       await capturer(anonyme, '01-connexion');
     });
     await etape('inscription', async () => {
+      // Sans valider le formulaire : aucun compte n'est créé (le parcours complet est dans parcours-inscription.js).
       await anonyme.getByRole('button', { name: /^S’inscrire$/ }).click();
       await anonyme.getByPlaceholder('Camille', { exact: true }).waitFor();
       await anonyme.waitForTimeout(1000);
       await anonyme.getByPlaceholder('Camille', { exact: true }).fill('Camille');
       await anonyme.getByPlaceholder('Martin', { exact: true }).fill('Martin');
       await anonyme.getByPlaceholder('camille.martin@cabinet.fr').fill('camille.martin@cabinet.fr');
-      await anonyme.waitForTimeout(300);
+      await anonyme.getByLabel('Pays').selectOption('CI');
+      await anonyme.getByPlaceholder('07 01 02 03 04').fill('07 01 02 03 04');
       await capturer(anonyme, '01b-inscription-identite');
       await anonyme.getByRole('button', { name: /Continuer/ }).click();
       const mdp = anonyme.getByPlaceholder('Choisissez un mot de passe');
@@ -134,6 +136,13 @@ async function formule(page, route, nom, opts) {
       await anonyme.getByPlaceholder('Saisissez-le à nouveau').fill('Compta2026#Bilan!');
       await anonyme.waitForTimeout(900);
       await capturer(anonyme, '01d-inscription-valide');
+    });
+    await etape('mot de passe oublié', async () => {
+      await aller(anonyme, '/connexion');
+      await anonyme.getByRole('button', { name: 'Mot de passe oublié ?' }).click();
+      await anonyme.getByPlaceholder(/vous@cabinet.fr/).fill(COMPTE.email);
+      await anonyme.waitForTimeout(800);
+      await capturer(anonyme, '01g-oubli-demande');
     });
     await anonyme.context().close();
 

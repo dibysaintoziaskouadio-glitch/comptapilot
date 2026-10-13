@@ -58,6 +58,7 @@ npm run dev -w frontend                      # interface sur http://localhost:51
 | `npm run docs` | régénère [docs/FORMULES.md](docs/FORMULES.md) et [docs/BAREMES.md](docs/BAREMES.md) |
 | `npm run bench` | régénère [docs/BENCHMARKS.md](docs/BENCHMARKS.md) |
 | `npm run captures` | captures d'écran dans [docs/screenshots](docs/screenshots) (API et Vite démarrés, Chrome requis) |
+| `npm run parcours` | parcours complet en navigateur : inscription, codes, mot de passe oublié, connexion par téléphone (mode démonstration) |
 
 ## Organisation du dépôt
 
@@ -74,6 +75,23 @@ scripts/    captures d'écran (Playwright)
 ```
 
 L'architecture détaillée (cycle d'un calcul, contexte, barèmes, API, modèle de données, ajout d'une formule) est décrite dans **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+## Comptes : inscription, confirmation, mot de passe oublié
+
+- **Inscription en trois étapes** : identité (nom, e-mail, téléphone mobile avec indicatif), sécurité (mot de passe vérifié en direct), puis **confirmation par deux codes à 6 chiffres** : l'un envoyé par e-mail, l'autre par **SMS ou WhatsApp**, au choix. Le compte n'est utilisable qu'une fois les deux confirmés.
+- **Connexion** avec l'adresse e-mail ou le numéro de téléphone.
+- **Mot de passe oublié** : code reçu par e-mail, SMS ou WhatsApp, puis nouveau mot de passe. La réponse est identique qu'un compte existe ou non.
+- Codes valables 10 minutes, 5 essais au plus, 60 s entre deux envois et 5 envois par heure ; seule leur empreinte HMAC est conservée.
+
+### Configurer l'envoi des codes
+
+| Canal | Fournisseur | Variables (`.env`) |
+|---|---|---|
+| E-mail | tout serveur SMTP (Brevo, Gmail avec mot de passe d'application, OVH, Mailjet…) | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_EXPEDITEUR` |
+| SMS | Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` |
+| WhatsApp | Twilio (bac à sable pour les essais, numéro WhatsApp Business validé en production) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` |
+
+Sans fournisseur, **`CODES_VISIBLES=true`** active le **mode démonstration** : rien n'est envoyé, le code s'affiche à l'écran dans un encadré signalé « Mode démonstration ». À réserver aux essais : en production, laisser `false` et configurer les fournisseurs.
 
 ## Langue et monnaie
 
@@ -121,6 +139,10 @@ Les montants circulent en chaînes décimales, jamais en nombres JSON. Une entr�
 | `GET /api/historique` | journal de l'utilisateur, filtrable (`moteur`, `statut`, `q`) et paginé |
 | `GET /api/historique/statistiques` | compteurs et activité sur 14 jours |
 | `GET · PATCH · DELETE /api/historique/{id}` | détail, validation, libellé, suppression (refusée si validé) |
+| `POST /api/auth/inscription` | création du compte et envoi des deux codes |
+| `POST /api/auth/verification/verifier` · `/renvoyer` | saisie d'un code, nouvel envoi (éventuellement par l'autre canal) |
+| `POST /api/auth/connexion` | par e-mail ou téléphone (`identifiant`) |
+| `POST /api/auth/mot-de-passe/oubli` · `/reinitialiser` | code de réinitialisation, nouveau mot de passe |
 | `PATCH /api/auth/preferences` | langue (`fr`, `en`) et monnaie (code ISO 4217) de l'utilisateur |
 | `GET /api/baremes` | barèmes, versions, version en vigueur, obsolescence |
 | `POST /api/baremes/{code}/versions` | nouvelle version (administrateur) |

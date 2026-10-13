@@ -71,7 +71,7 @@ export function PageFormule() {
   });
   const enCours = calcul.isFetching || debounce !== valeurs;
   const erreur = calcul.error instanceof ErreurApi ? calcul.error : null;
-  const erreursChamps: ErreursChamps = useMemo(() => Object.fromEntries((erreur?.details ?? []).map((x) => [x.champ, x.message])), [erreur]);
+  const erreursChamps: ErreursChamps = useMemo(() => Object.fromEntries((erreur?.champs ?? []).map((x) => [x.champ, x.message])), [erreur]);
   const r = !erreur ? calcul.data?.resultat : undefined;
 
   const sauver = useMutation({
@@ -205,9 +205,9 @@ export function PageFormule() {
               <p className="flex items-center gap-2 text-sm font-semibold text-danger">
                 <XCircle className="size-4" /> {erreur.message}
               </p>
-              {erreur.details && (
+              {erreur.champs.length > 0 && (
                 <ul className="mt-2 space-y-0.5 text-[13px]">
-                  {erreur.details.map((d, i) => (
+                  {erreur.champs.map((d, i) => (
                     <li key={i}>
                       <span className="font-mono text-[12px]">{d.champ}</span> : {d.message}
                     </li>

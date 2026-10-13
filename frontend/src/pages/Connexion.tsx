@@ -2,12 +2,17 @@
  * Écran de connexion et d'inscription.
  * Toujours sombre, quel que soit le thème choisi : carte indigo sur un fond violet-magenta animé,
  * formulaire à gauche, ruban lumineux et message d'accueil à droite.
- * L'inscription se fait en deux étapes (identité, puis sécurité) avec vérification du mot de passe en direct.
+ * Inscription en trois étapes : identité (e-mail, téléphone), sécurité (mot de passe vérifié en direct),
+ * puis confirmation par deux codes (e-mail ; SMS ou WhatsApp). Connexion par e-mail ou téléphone,
+ * et parcours « mot de passe oublié » par code à usage unique.
  */
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck, User, UserRound } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, AtSign, Check, ChevronDown, Coins, Eye, EyeOff, FlaskConical, KeyRound, Loader2, Lock, Mail, MessageCircle, RotateCw, Send, ShieldCheck, Smartphone, User, UserRound } from 'lucide-react';
+import { toast } from 'sonner';
+import { CodeOTP } from '@/components/CodeOTP';
+import { drapeau, PAYS, paysParDefaut } from '@/lib/pays';
 import { api, ErreurApi } from '@/lib/api';
 import { emailValide, LONGUEUR_MIN, reglesMotDePasse, robustesse } from '@/lib/motDePasse';
 import { LogoVision, MARQUE } from '@/components/Marque';
@@ -126,26 +131,111 @@ function ErreurServeur({ message }: { message: string }) {
 }
 
 
+// ─────────────────────────────── Types partagés ───────────────────────────────
+
+interface EtatServeur {
+  premierDemarrage: boolean;
+  inscriptionOuverte: boolean;
+  canaux: { email: boolean; sms: boolean; whatsapp: boolean };
+  demonstration: boolean;
+}
+
+export interface EtatVerification {
+  jeton: string;
+  email: string;
+  telephone: string | null;
+  emailVerifie: boolean;
+  telephoneVerifie: boolean;
+  canalTelephone: 'SMS' | 'WHATSAPP' | null;
+  codesDemo?: { email?: string; telephone?: string };
+}
+
+type CanalTel = 'SMS' | 'WHATSAPP';
+
+/** Compte à rebours avant de pouvoir redemander un code (60 s, comme l'API). */
+function useCompteARebours(initial = 60) {
+  const [s, setS] = useState(initial);
+  useEffect(() => {
+    if (s <= 0) return;
+    const id = setTimeout(() => setS((x) => x - 1), 1000);
+    return () => clearTimeout(id);
+  }, [s]);
+  return { secondes: s, relancer: () => setS(60) };
+}
+
+/** Choix segmenté (canal d'envoi). */
+function Segments<T extends string>({ options, valeur, onChange, libelle }: { options: { v: T; libelle: string; icone: React.ReactNode }[]; valeur: T; onChange: (v: T) => void; libelle: string }) {
+  return (
+    <div>
+      <p className="mb-1.5 pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">{libelle}</p>
+      <div className="grid gap-1 rounded-full border border-white/10 bg-white/[.04] p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={libelle}>
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            role="radio"
+            aria-checked={valeur === o.v}
+            onClick={() => onChange(o.v)}
+            className={cn('flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[12.5px] font-semibold transition-all', valeur === o.v ? 'bg-white text-[#1a1540] shadow' : 'text-white/60 hover:text-white')}
+          >
+            {o.icone} {o.libelle}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Encadré du mode démonstration : codes affichés faute de fournisseur d'envoi. */
+function CodesDemo({ codes }: { codes: { libelle: string; code?: string }[] }) {
+  const { t } = useT();
+  const visibles = codes.filter((c) => c.code);
+  if (!visibles.length) return null;
+  return (
+    <div className="rounded-2xl border border-dashed border-[#fcd34d]/50 bg-[#fcd34d]/[.07] px-4 py-3 text-[12.5px] text-[#fde68a] animate-montee" role="note">
+      <p className="flex items-center gap-1.5 font-semibold">
+        <FlaskConical className="size-4" /> {t('cx.demoTitre')}
+      </p>
+      <p className="mt-1 text-[#fde68a]/80">{t('cx.demoTexte')}</p>
+      <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+        {visibles.map((c) => (
+          <span key={c.libelle}>
+            {c.libelle} : <strong className="font-display text-[15px] tracking-[.2em] text-white">{c.code}</strong>
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+const optionsCanalTel = (t: (c: Cle) => string, canaux: EtatServeur['canaux']) =>
+  [
+    canaux.sms && { v: 'SMS' as CanalTel, libelle: t('cx.sms'), icone: <Smartphone className="size-3.5" /> },
+    canaux.whatsapp && { v: 'WHATSAPP' as CanalTel, libelle: t('cx.whatsapp'), icone: <MessageCircle className="size-3.5" /> },
+  ].filter(Boolean) as { v: CanalTel; libelle: string; icone: React.ReactNode }[];
+
 // ─────────────────────────────── Connexion ───────────────────────────────
 
-function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
-  const [email, setEmail] = useState('');
+function FormulaireConnexion({ terminer, verifier, oublier, identifiantInitial, succes }: { terminer: () => Promise<void>; verifier: (e: EtatVerification) => void; oublier: (identifiant: string) => void; identifiantInitial: string; succes?: string | null }) {
+  const [identifiant, setIdentifiant] = useState(identifiantInitial);
   const [mdp, setMdp] = useState('');
   const [voir, setVoir] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const verrMaj = useVerrMaj();
-  const { t, erreur: messageErreur } = useT();
+  const { t, devise, erreur: messageErreur } = useT();
 
   const soumettre = async (e: React.FormEvent) => {
     e.preventDefault();
     setErreur(null);
     setEnvoi(true);
     try {
-      await api('/auth/connexion', { method: 'POST', json: { email, motDePasse: mdp } });
+      await api('/auth/connexion', { method: 'POST', json: { identifiant, pays: paysParDefaut(devise), motDePasse: mdp } });
       await terminer();
     } catch (x) {
-      setErreur(messageErreur(x));
+      // Compte créé mais pas encore confirmé : l'API renvoie l'état de vérification.
+      if (x instanceof ErreurApi && x.code === 'COMPTE_NON_VERIFIE' && x.corps?.verification) verifier(x.corps.verification as EtatVerification);
+      else setErreur(messageErreur(x));
     } finally {
       setEnvoi(false);
     }
@@ -153,8 +243,13 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
 
   return (
     <form onSubmit={soumettre} className="space-y-4" noValidate>
+      {succes && (
+        <p role="status" className="flex items-start gap-2 rounded-2xl border border-[#34d399]/30 bg-[#34d399]/10 px-4 py-2.5 text-[13px] text-[#a7f3d0] animate-montee">
+          <Check className="mt-0.5 size-4 shrink-0" /> {succes}
+        </p>
+      )}
       <div className="animate-montee" style={cascade(3)}>
-        <Saisie libelle={t('cx.email')} icone={<Mail className="size-4" />} type="email" placeholder={t('cx.emailPh')} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+        <Saisie libelle={t('cx.identifiant')} icone={<AtSign className="size-4" />} placeholder={t('cx.identifiantPh')} value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} autoComplete="username" required />
       </div>
       <div className="animate-montee" style={cascade(4)}>
         <Saisie
@@ -170,10 +265,15 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
           droite={<BoutonVoir voir={voir} basculer={() => setVoir((v) => !v)} />}
         />
         {verrMaj.actif && <AlerteVerrMaj />}
+        <div className="mt-2 flex justify-end pr-2">
+          <button type="button" onClick={() => oublier(identifiant)} className="text-[12.5px] font-semibold text-[#f0abfc] hover:text-white hover:underline">
+            {t('cx.oublie')}
+          </button>
+        </div>
       </div>
       {erreur && <ErreurServeur message={erreur} />}
-      <div className="pt-2">
-        <BoutonPrincipal envoi={envoi} disabled={!email || !mdp} style={cascade(5)}>
+      <div className="pt-1">
+        <BoutonPrincipal envoi={envoi} disabled={!identifiant || !mdp} style={cascade(5)}>
           {t('cx.seConnecter')} {!envoi && <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />}
         </BoutonPrincipal>
       </div>
@@ -183,32 +283,33 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
 
 // ─────────────────────────────── Inscription ───────────────────────────────
 
-function Etapes({ etape }: { etape: 1 | 2 }) {
+function Etapes({ etape }: { etape: 1 | 2 | 3 }) {
   const { t } = useT();
   const items = [
     { n: 1, libelle: t('cx.identite') },
     { n: 2, libelle: t('cx.securite') },
+    { n: 3, libelle: t('cx.verification') },
   ];
   return (
-    <ol className="flex items-center gap-3" aria-label={t('cx.etape', { n: etape })}>
+    <ol className="flex items-center gap-2" aria-label={t('cx.etape', { n: etape, total: 3 })}>
       {items.map((it, i) => {
         const fait = etape > it.n;
         const courant = etape === it.n;
         return (
-          <li key={it.n} className="flex flex-1 items-center gap-3">
+          <li key={it.n} className={cn('flex items-center gap-2', i < items.length - 1 && 'flex-1')}>
             <span
               className={cn(
-                'grid size-8 shrink-0 place-items-center rounded-full text-[12px] font-bold transition-all duration-500',
+                'grid size-7 shrink-0 place-items-center rounded-full text-[11.5px] font-bold transition-all duration-500',
                 fait ? 'bg-[#34d399] text-[#0b2a1f]' : courant ? 'degrade-bouton text-white shadow-[0_0_0_4px_rgb(217_70_239/.2)]' : 'border border-white/20 text-white/50',
               )}
               aria-current={courant ? 'step' : undefined}
             >
-              {fait ? <Check className="size-4" /> : it.n}
+              {fait ? <Check className="size-3.5" /> : it.n}
             </span>
-            <span className={cn('text-[12.5px] font-semibold', courant || fait ? 'text-white' : 'text-white/45')}>{it.libelle}</span>
+            <span className={cn('hidden text-[12px] font-semibold sm:inline', courant || fait ? 'text-white' : 'text-white/45')}>{it.libelle}</span>
             {i < items.length - 1 && (
-              <span className="relative h-[2px] flex-1 overflow-hidden rounded-full bg-white/10">
-                <span className={cn('absolute inset-y-0 left-0 bg-gradient-to-r from-[#a855f7] to-[#ec4899] transition-all duration-700', etape > 1 ? 'w-full' : 'w-0')} />
+              <span className="relative h-[2px] min-w-4 flex-1 overflow-hidden rounded-full bg-white/10">
+                <span className={cn('absolute inset-y-0 left-0 bg-gradient-to-r from-[#a855f7] to-[#ec4899] transition-all duration-700', etape > it.n ? 'w-full' : 'w-0')} />
               </span>
             )}
           </li>
@@ -254,29 +355,82 @@ function Robustesse({ mdp, nom, email }: { mdp: string; nom: string; email: stri
   );
 }
 
-function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<void>; premier: boolean }) {
+/** Numéro de téléphone : pays (indicatif) + numéro local. */
+function SaisieTelephone({ pays, setPays, numero, setNumero, erreur, onBlur }: { pays: string; setPays: (p: string) => void; numero: string; setNumero: (n: string) => void; erreur?: string | null; onBlur?: () => void }) {
+  const { t, langue } = useT();
+  const id = useId();
+  const p = PAYS.find((x) => x.code === pays) ?? PAYS[0];
+  return (
+    <div className="group">
+      <label htmlFor={id} className="mb-1.5 block pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">
+        {t('cx.telephone')}
+      </label>
+      <div className={cn('flex h-12 overflow-hidden rounded-full border bg-white/[.06] transition-all focus-within:bg-white/[.09]', erreur ? 'border-[#fb7185]/70' : 'border-white/15 hover:border-white/25 focus-within:border-[#a855f7] focus-within:shadow-[0_0_0_4px_rgb(168_85_247/.22)]')}>
+        <div className="relative flex shrink-0 items-center border-r border-white/10">
+          <select
+            value={pays}
+            onChange={(e) => setPays(e.target.value)}
+            aria-label={t('cx.pays')}
+            className="h-full appearance-none bg-transparent pl-4 pr-7 text-[14px] text-white focus:outline-none [&>option]:bg-[#1a1540]"
+          >
+            {PAYS.map((x) => (
+              <option key={x.code} value={x.code}>
+                {drapeau(x.code)} {x.nom[langue]} ({x.indicatif})
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute inset-y-0 left-4 right-7 flex items-center bg-[#2a2452] text-[14px]">
+            {drapeau(p.code)} <span className="ml-1.5 font-medium text-white/80">{p.indicatif}</span>
+          </span>
+          <ChevronDown className="pointer-events-none absolute right-2 size-3.5 text-white/45" />
+        </div>
+        <input
+          id={id}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder={t('cx.telephonePh')}
+          value={numero}
+          onChange={(e) => setNumero(e.target.value.replace(/[^\d\s.+-]/g, ''))}
+          onBlur={onBlur}
+          aria-invalid={!!erreur || undefined}
+          className="min-w-0 flex-1 bg-transparent px-4 text-[14px] text-white placeholder:text-white/35 focus:outline-none"
+        />
+      </div>
+      <p className={cn('mt-1.5 pl-4 text-[12px]', erreur ? 'text-[#fda4af]' : 'text-white/45')}>{erreur ?? t('cx.telephoneAide')}</p>
+    </div>
+  );
+}
+
+function FormulaireInscription({ premier, canaux, verifier }: { premier: boolean; canaux: EtatServeur['canaux']; verifier: (e: EtatVerification) => void }) {
   const [etape, setEtape] = useState<1 | 2>(1);
   const { t, devise, changer, erreur: messageErreur, langue } = useT();
-  const [v, setV] = useState({ prenom: '', nom: '', email: '', mdp: '', confirmation: '' });
+  const [v, setV] = useState({ prenom: '', nom: '', email: '', numero: '', mdp: '', confirmation: '' });
+  const [pays, setPays] = useState(() => paysParDefaut(devise));
+  const options = optionsCanalTel(t, canaux);
+  const [canal, setCanal] = useState<CanalTel>(options[0]?.v ?? 'SMS');
   const [touches, setTouches] = useState<Record<string, boolean>>({});
   const [voir, setVoir] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [erreurEmail, setErreurEmail] = useState<string | null>(null);
+  const [erreurTel, setErreurTel] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const verrMaj = useVerrMaj();
   const maj = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setV({ ...v, [k]: e.target.value });
     if (k === 'email') setErreurEmail(null);
   };
-  const toucher = (k: string) => () => setTouches((t) => ({ ...t, [k]: true }));
+  const toucher = (k: string) => () => setTouches((x) => ({ ...x, [k]: true }));
 
   const nomComplet = `${v.prenom.trim()} ${v.nom.trim()}`.trim();
+  const chiffresTel = v.numero.replace(/\D/g, '').length;
   const erreurs1 = {
     prenom: v.prenom.trim().length < 2 ? t('cx.errPrenom') : null,
     nom: v.nom.trim().length < 2 ? t('cx.errNom') : null,
     email: !emailValide(v.email) ? t('cx.errEmail') : null,
+    telephone: chiffresTel < 6 || chiffresTel > 15 ? t('cx.errTelephone') : null,
   };
-  const etape1Ok = !erreurs1.prenom && !erreurs1.nom && !erreurs1.email;
+  const etape1Ok = !erreurs1.prenom && !erreurs1.nom && !erreurs1.email && !erreurs1.telephone;
   const regles = useMemo(() => reglesMotDePasse(v.mdp, nomComplet, v.email), [v.mdp, nomComplet, v.email]);
   const mdpOk = regles.every((r) => r.ok);
   const correspond = v.confirmation.length > 0 && v.confirmation === v.mdp;
@@ -284,7 +438,7 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
 
   const continuer = (e: React.FormEvent) => {
     e.preventDefault();
-    setTouches({ prenom: true, nom: true, email: true });
+    setTouches({ prenom: true, nom: true, email: true, telephone: true });
     if (etape1Ok) setEtape(2);
   };
 
@@ -294,14 +448,17 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
     setErreur(null);
     setEnvoi(true);
     try {
-      await api('/auth/inscription', { method: 'POST', json: { email: v.email.trim(), nom: nomComplet, motDePasse: v.mdp, langue, devise } });
-      await terminer();
+      const r = await api<{ verification: EtatVerification }>('/auth/inscription', {
+        method: 'POST',
+        json: { email: v.email.trim(), nom: nomComplet, telephone: v.numero, pays, canalTelephone: canal, motDePasse: v.mdp, langue, devise },
+      });
+      verifier(r.verification);
     } catch (x) {
-      // Une adresse déjà utilisée se corrige à l'étape 1.
-      if (x instanceof ErreurApi && (x.code === 'EMAIL_UTILISE' || x.details?.[0]?.champ === 'email')) {
-        setErreurEmail(messageErreur(x));
-        setEtape(1);
-      } else setErreur(messageErreur(x));
+      // Une adresse ou un numéro refusé se corrige à l'étape 1.
+      const champ = x instanceof ErreurApi ? (x.code === 'EMAIL_UTILISE' ? 'email' : x.code === 'TELEPHONE_UTILISE' ? 'telephone' : x.champs[0]?.champ) : undefined;
+      if (champ === 'email') (setErreurEmail(messageErreur(x)), setEtape(1));
+      else if (champ === 'telephone') (setErreurTel(x instanceof ErreurApi && x.code === 'TELEPHONE_UTILISE' ? messageErreur(x) : t('cx.errTelephone')), setEtape(1));
+      else setErreur(messageErreur(x));
     } finally {
       setEnvoi(false);
     }
@@ -339,6 +496,9 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
             />
           </div>
           <div className="animate-montee" style={cascade(7)}>
+            <SaisieTelephone pays={pays} setPays={(p) => (setPays(p), setErreurTel(null))} numero={v.numero} setNumero={(n) => (setV({ ...v, numero: n }), setErreurTel(null))} onBlur={toucher('telephone')} erreur={erreurTel ?? montrer('telephone')} />
+          </div>
+          <div className="animate-montee" style={cascade(8)}>
             <label htmlFor="devise-inscription" className="mb-1.5 block pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">
               {t('cx.devise')}
             </label>
@@ -360,7 +520,7 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
             </div>
           </div>
           <div className="pt-2">
-            <BoutonPrincipal envoi={false} style={cascade(8)}>
+            <BoutonPrincipal envoi={false} style={cascade(9)}>
               {t('cx.continuer')} <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </BoutonPrincipal>
           </div>
@@ -368,9 +528,9 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
       ) : (
         <form key="securite" onSubmit={soumettre} className="space-y-4" noValidate>
           <p className="flex items-center gap-2 rounded-2xl bg-white/[.04] px-4 py-2.5 text-[12.5px] text-white/65 animate-montee" style={cascade(0)}>
-            <UserRound className="size-4 text-[#67e8f9]" />
+            <UserRound className="size-4 shrink-0 text-[#67e8f9]" />
             <span className="min-w-0 truncate">
-              <span className="font-semibold text-white">{nomComplet}</span> · {v.email.trim()}
+              <span className="font-semibold text-white">{nomComplet}</span> · {v.email.trim()} · {PAYS.find((x) => x.code === pays)?.indicatif} {v.numero}
             </span>
           </p>
           <div className="animate-montee" style={cascade(1)}>
@@ -405,12 +565,17 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
               aide={correspond ? t('cx.correspond') : undefined}
             />
           </div>
+          {options.length > 0 && (
+            <div className="animate-montee" style={cascade(3)}>
+              <Segments libelle={t('cx.recevoirPar')} options={options} valeur={canal} onChange={setCanal} />
+            </div>
+          )}
           {erreur && <ErreurServeur message={erreur} />}
           <div className="flex items-center gap-3 pt-2">
-            <button type="button" onClick={() => setEtape(1)} className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-5 text-[13px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:bg-white/5 animate-montee" style={cascade(3)}>
+            <button type="button" onClick={() => setEtape(1)} className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-5 text-[13px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:bg-white/5 animate-montee" style={cascade(4)}>
               <ArrowLeft className="size-4" /> {t('cx.retour')}
             </button>
-            <BoutonPrincipal envoi={envoi} disabled={!mdpOk || !correspond} style={cascade(3)}>
+            <BoutonPrincipal envoi={envoi} disabled={!mdpOk || !correspond} style={cascade(4)}>
               {t(premier ? 'cx.creerAdmin' : 'cx.creer')}
             </BoutonPrincipal>
           </div>
@@ -423,25 +588,313 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
   );
 }
 
+// ─────────────────────────────── Vérification des codes ───────────────────────────────
+
+function BlocCode({
+  icone,
+  titre,
+  destination,
+  verifie,
+  demarrer,
+  onVerifier,
+  onRenvoyer,
+  autreCanal,
+  autoFocus,
+}: {
+  icone: React.ReactNode;
+  titre: string;
+  destination: string;
+  verifie: boolean;
+  demarrer: boolean;
+  onVerifier: (code: string) => Promise<string | null>;
+  onRenvoyer: (canal?: CanalTel) => Promise<boolean>;
+  autreCanal?: { canal: CanalTel; libelle: string };
+  autoFocus?: boolean;
+}) {
+  const { t } = useT();
+  const [code, setCode] = useState('');
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+  const [renvoye, setRenvoye] = useState(false);
+  const rebours = useCompteARebours(demarrer ? 60 : 0);
+
+  const verifier = async (c: string) => {
+    setEnvoi(true);
+    setErreur(null);
+    const e = await onVerifier(c);
+    setEnvoi(false);
+    if (e) (setErreur(e), setCode(''));
+  };
+  const renvoyer = async (canal?: CanalTel) => {
+    setErreur(null);
+    if (await onRenvoyer(canal)) (rebours.relancer(), setRenvoye(true), setCode(''));
+  };
+
+  return (
+    <div className={cn('rounded-2xl border p-4 transition-colors', verifie ? 'border-[#34d399]/40 bg-[#34d399]/[.07]' : 'border-white/10 bg-white/[.04]')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className={cn('mt-0.5 grid size-8 shrink-0 place-items-center rounded-full', verifie ? 'bg-[#34d399] text-[#0b2a1f]' : 'bg-white/10 text-[#67e8f9]')}>{verifie ? <Check className="size-4" /> : icone}</span>
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-semibold">{titre}</p>
+            <p className="truncate text-[12px] text-white/50">{t('cx.envoyeA', { destination })}</p>
+          </div>
+        </div>
+        {verifie && <span className="shrink-0 rounded-full bg-[#34d399]/15 px-2.5 py-1 text-[11px] font-bold text-[#6ee7b7]">{t('cx.confirme')}</span>}
+      </div>
+      {!verifie && (
+        <div className="mt-3 space-y-2.5">
+          <CodeOTP valeur={code} onChange={setCode} onComplet={verifier} desactive={envoi} invalide={!!erreur} libelle={titre} autoFocus={autoFocus} />
+          {erreur && <p className="pl-1 text-[12px] text-[#fda4af]">{erreur}</p>}
+          {renvoye && !erreur && <p className="pl-1 text-[12px] text-[#a7f3d0]">{t('cx.codeRenvoye')}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[12.5px]">
+            <button type="button" disabled={rebours.secondes > 0} onClick={() => renvoyer()} className="flex items-center gap-1.5 font-semibold text-[#f0abfc] hover:text-white disabled:cursor-default disabled:text-white/40">
+              <RotateCw className="size-3.5" /> {rebours.secondes > 0 ? t('cx.renvoyerDans', { s: rebours.secondes }) : t('cx.renvoyer')}
+            </button>
+            {autreCanal && (
+              <button type="button" disabled={rebours.secondes > 0} onClick={() => renvoyer(autreCanal.canal)} className="font-semibold text-white/60 hover:text-white disabled:cursor-default disabled:text-white/30">
+                {autreCanal.libelle}
+              </button>
+            )}
+          </div>
+          {envoi && <Loader2 className="mx-auto size-4 animate-spin text-white/60" />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Verification({ initial, canaux, terminer }: { initial: EtatVerification; canaux: EtatServeur['canaux']; terminer: () => Promise<void> }) {
+  const { t, erreur: messageErreur } = useT();
+  const [etat, setEtat] = useState(initial);
+  const [demo, setDemo] = useState(initial.codesDemo ?? {});
+  const canal: CanalTel = etat.canalTelephone ?? 'SMS';
+  const autre: CanalTel = canal === 'SMS' ? 'WHATSAPP' : 'SMS';
+  const autreDispo = autre === 'SMS' ? canaux.sms : canaux.whatsapp;
+
+  const verifier = (cible: 'email' | 'telephone') => async (code: string) => {
+    try {
+      const r = await api<{ verification?: EtatVerification; utilisateur?: unknown }>('/auth/verification/verifier', { method: 'POST', json: { jeton: etat.jeton, cible, code } });
+      if (r.utilisateur) await terminer();
+      else if (r.verification) setEtat((e) => ({ ...r.verification!, canalTelephone: e.canalTelephone }));
+      return null;
+    } catch (x) {
+      return messageErreur(x);
+    }
+  };
+  const renvoyer = (cible: 'email' | 'telephone') => async (c?: CanalTel) => {
+    try {
+      const r = await api<{ verification: EtatVerification }>('/auth/verification/renvoyer', { method: 'POST', json: { jeton: etat.jeton, cible, canal: cible === 'telephone' ? (c ?? canal) : undefined } });
+      setEtat((e) => ({ ...r.verification, canalTelephone: cible === 'telephone' ? (r.verification.canalTelephone ?? e.canalTelephone) : e.canalTelephone }));
+      setDemo((d) => ({ ...d, ...r.verification.codesDemo }));
+      return true;
+    } catch (x) {
+      toast.error(messageErreur(x));
+      return false;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <CodesDemo
+        codes={[
+          { libelle: t('cx.demoCodeEmail'), code: etat.emailVerifie ? undefined : demo.email },
+          { libelle: t('cx.demoCodeTelephone'), code: etat.telephoneVerifie ? undefined : demo.telephone },
+        ]}
+      />
+      <div className="animate-montee" style={cascade(3)}>
+        <BlocCode icone={<Mail className="size-4" />} titre={t('cx.codeEmail')} destination={etat.email} verifie={etat.emailVerifie} demarrer={!!initial.codesDemo?.email || !initial.emailVerifie} onVerifier={verifier('email')} onRenvoyer={renvoyer('email')} autoFocus={!etat.emailVerifie} />
+      </div>
+      {etat.telephone && (
+        <div className="animate-montee" style={cascade(4)}>
+          <BlocCode
+            icone={canal === 'WHATSAPP' ? <MessageCircle className="size-4" /> : <Smartphone className="size-4" />}
+            titre={t('cx.codeTelephone', { canal: t(canal === 'WHATSAPP' ? 'cx.whatsapp' : 'cx.sms') })}
+            destination={etat.telephone}
+            verifie={etat.telephoneVerifie}
+            demarrer={!initial.telephoneVerifie}
+            onVerifier={verifier('telephone')}
+            onRenvoyer={renvoyer('telephone')}
+            autreCanal={autreDispo ? { canal: autre, libelle: t(autre === 'WHATSAPP' ? 'cx.parWhatsapp' : 'cx.parSms') } : undefined}
+            autoFocus={etat.emailVerifie}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────── Mot de passe oublié ───────────────────────────────
+
+function FormulaireOubli({ identifiantInitial, canaux, retour }: { identifiantInitial: string; canaux: EtatServeur['canaux']; retour: (identifiant: string, succes?: boolean) => void }) {
+  const { t, devise, erreur: messageErreur } = useT();
+  const [identifiant, setIdentifiant] = useState(identifiantInitial);
+  const parEmail = identifiant.includes('@');
+  const options = [
+    canaux.email && { v: 'EMAIL' as const, libelle: t('cx.emailCanal'), icone: <Mail className="size-3.5" /> },
+    ...(parEmail ? [] : optionsCanalTel(t, canaux)),
+  ].filter(Boolean) as { v: 'EMAIL' | CanalTel; libelle: string; icone: React.ReactNode }[];
+  const [canal, setCanal] = useState<'EMAIL' | CanalTel>(parEmail || !identifiant ? 'EMAIL' : 'SMS');
+  const canalEffectif = options.some((o) => o.v === canal) ? canal : (options[0]?.v ?? 'EMAIL');
+  const [envoye, setEnvoye] = useState(false);
+  const [codeDemo, setCodeDemo] = useState<string | undefined>();
+  const [code, setCode] = useState('');
+  const [mdp, setMdp] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [voir, setVoir] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+  const rebours = useCompteARebours(0);
+  const verrMaj = useVerrMaj();
+  const pays = paysParDefaut(devise);
+  const regles = useMemo(() => reglesMotDePasse(mdp, '', parEmail ? identifiant : ''), [mdp, identifiant, parEmail]);
+  const mdpOk = regles.every((r) => r.ok);
+  const correspond = confirmation.length > 0 && confirmation === mdp;
+
+  const demander = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setErreur(null);
+    setEnvoi(true);
+    try {
+      const r = await api<{ envoye: boolean; codeDemo?: string }>('/auth/mot-de-passe/oubli', { method: 'POST', json: { identifiant, pays, canal: canalEffectif } });
+      setCodeDemo(r.codeDemo);
+      setEnvoye(true);
+      setCode('');
+      rebours.relancer();
+    } catch (x) {
+      setErreur(messageErreur(x));
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  const reinitialiser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.length !== 6 || !mdpOk || !correspond) return;
+    setErreur(null);
+    setEnvoi(true);
+    try {
+      await api('/auth/mot-de-passe/reinitialiser', { method: 'POST', json: { identifiant, pays, code, motDePasse: mdp } });
+      retour(identifiant, true);
+    } catch (x) {
+      setErreur(messageErreur(x));
+      if (x instanceof ErreurApi && x.code.startsWith('CODE_')) setCode('');
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  if (!envoye)
+    return (
+      <form onSubmit={demander} className="space-y-4" noValidate>
+        <div className="animate-montee" style={cascade(3)}>
+          <Saisie libelle={t('cx.identifiant')} icone={<AtSign className="size-4" />} placeholder={t('cx.identifiantPh')} value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} autoComplete="username" autoFocus />
+        </div>
+        {options.length > 0 && (
+          <div className="animate-montee" style={cascade(4)}>
+            <Segments libelle={t('cx.canalOubli')} options={options} valeur={canalEffectif} onChange={setCanal} />
+          </div>
+        )}
+        {erreur && <ErreurServeur message={erreur} />}
+        <div className="pt-2">
+          <BoutonPrincipal envoi={envoi} disabled={identifiant.trim().length < 3 || !options.length} style={cascade(5)}>
+            {t('cx.recevoirCode')} {!envoi && <Send className="size-4" />}
+          </BoutonPrincipal>
+        </div>
+        <button type="button" onClick={() => retour(identifiant)} className="mx-auto flex items-center gap-1.5 text-[12.5px] font-semibold text-white/60 hover:text-white">
+          <ArrowLeft className="size-3.5" /> {t('cx.retourConnexion')}
+        </button>
+      </form>
+    );
+
+  return (
+    <form onSubmit={reinitialiser} className="space-y-4" noValidate>
+      <p role="status" className="flex items-start gap-2 rounded-2xl bg-white/[.05] px-4 py-2.5 text-[12.5px] text-white/70 animate-montee">
+        <Send className="mt-0.5 size-4 shrink-0 text-[#67e8f9]" /> {t('cx.oubliEnvoye', { identifiant })}
+      </p>
+      <CodesDemo codes={[{ libelle: t('cx.code'), code: codeDemo }]} />
+      <div className="animate-montee" style={cascade(1)}>
+        <p className="mb-1.5 pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">{t('cx.code')}</p>
+        <CodeOTP valeur={code} onChange={setCode} libelle={t('cx.code')} autoFocus />
+        <button type="button" disabled={rebours.secondes > 0 || envoi} onClick={() => demander()} className="mt-2 flex items-center gap-1.5 pl-1 text-[12.5px] font-semibold text-[#f0abfc] hover:text-white disabled:cursor-default disabled:text-white/40">
+          <RotateCw className="size-3.5" /> {rebours.secondes > 0 ? t('cx.renvoyerDans', { s: rebours.secondes }) : t('cx.renvoyer')}
+        </button>
+      </div>
+      <div className="animate-montee" style={cascade(2)}>
+        <Saisie
+          libelle={t('cx.nouveauMdp')}
+          icone={<KeyRound className="size-4" />}
+          type={voir ? 'text' : 'password'}
+          placeholder={t('cx.mdpChoisir')}
+          value={mdp}
+          onChange={(e) => setMdp(e.target.value)}
+          autoComplete="new-password"
+          etat={mdpOk ? 'valide' : 'neutre'}
+          {...verrMaj.props}
+          droite={<BoutonVoir voir={voir} basculer={() => setVoir((x) => !x)} />}
+        />
+        {verrMaj.actif && <AlerteVerrMaj />}
+        <Robustesse mdp={mdp} nom="" email={parEmail ? identifiant : ''} />
+      </div>
+      <div className="animate-montee" style={cascade(3)}>
+        <Saisie
+          libelle={t('cx.confirmation')}
+          icone={<Lock className="size-4" />}
+          type={voir ? 'text' : 'password'}
+          placeholder={t('cx.confirmationPh')}
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          autoComplete="new-password"
+          etat={correspond ? 'valide' : 'neutre'}
+          erreur={confirmation.length >= mdp.length && confirmation && !correspond ? t('cx.errCorrespond') : null}
+        />
+      </div>
+      {erreur && <ErreurServeur message={erreur} />}
+      <div className="flex items-center gap-3 pt-1">
+        <button type="button" onClick={() => setEnvoye(false)} className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-5 text-[13px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:bg-white/5">
+          <ArrowLeft className="size-4" /> {t('cx.retour')}
+        </button>
+        <BoutonPrincipal envoi={envoi} disabled={code.length !== 6 || !mdpOk || !correspond}>
+          {t('cx.changerMdp')}
+        </BoutonPrincipal>
+      </div>
+    </form>
+  );
+}
+
 // ─────────────────────────────── Page ───────────────────────────────
 
 export function PageConnexion() {
-  const etat = useQuery({ queryKey: ['etat'], queryFn: () => api<{ premierDemarrage: boolean; inscriptionOuverte: boolean }>('/auth/etat') });
-  const [mode, setMode] = useState<'connexion' | 'inscription'>('connexion');
+  const etat = useQuery({ queryKey: ['etat'], queryFn: () => api<EtatServeur>('/auth/etat') });
+  const [mode, setMode] = useState<'connexion' | 'inscription' | 'oubli' | 'verification'>('connexion');
+  const [verification, setVerification] = useState<EtatVerification | null>(null);
+  const [depuisInscription, setDepuisInscription] = useState(false);
+  const [identifiant, setIdentifiant] = useState('');
+  const [succes, setSucces] = useState<string | null>(null);
   const nav = useNavigate();
   const qc = useQueryClient();
-  const premier = !!etat.data?.premierDemarrage;
-  const inscription = mode === 'inscription' || premier;
-  const peutBasculer = !premier && !!etat.data?.inscriptionOuverte;
-  const basculer = () => setMode(inscription ? 'connexion' : 'inscription');
   const { t } = useT();
+  const premier = !!etat.data?.premierDemarrage;
+  const canaux = etat.data?.canaux ?? { email: false, sms: false, whatsapp: false };
+  // Au premier démarrage, l'écran s'ouvre sur l'inscription de l'administrateur.
+  const vue = premier && mode === 'connexion' ? 'inscription' : mode;
+  const inscription = vue === 'inscription' || (vue === 'verification' && depuisInscription);
+  const peutBasculer = !premier && !!etat.data?.inscriptionOuverte;
+  const basculer = () => (setSucces(null), setMode(vue === 'connexion' ? 'inscription' : 'connexion'));
   const terminer = async () => {
     await qc.invalidateQueries({ queryKey: ['session'] });
     nav('/');
   };
+  const verifier = (depuis: 'inscription' | 'connexion') => (e: EtatVerification) => {
+    setVerification(e);
+    setDepuisInscription(depuis === 'inscription');
+    setMode('verification');
+  };
 
-  const titre = t(premier ? 'cx.titreAdmin' : inscription ? 'cx.titreInscription' : 'cx.titreConnexion');
-  const sousTitre = t(premier ? 'cx.sousAdmin' : inscription ? 'cx.sousInscription' : 'cx.sousConnexion');
+  const titre = t(vue === 'verification' ? 'cx.titreVerification' : vue === 'oubli' ? 'cx.titreOubli' : premier ? 'cx.titreAdmin' : vue === 'inscription' ? 'cx.titreInscription' : 'cx.titreConnexion');
+  const sousTitre = t(vue === 'verification' ? 'cx.sousVerification' : vue === 'oubli' ? 'cx.sousOubli' : premier ? 'cx.sousAdmin' : vue === 'inscription' ? 'cx.sousInscription' : 'cx.sousConnexion');
+  const IconeAvatar = vue === 'oubli' ? KeyRound : vue === 'verification' || premier ? ShieldCheck : UserRound;
+  const compact = vue !== 'connexion';
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[linear-gradient(125deg,#3b2bd9,#7c2bf0_35%,#b026e8_65%,#e0309f)] bg-[length:220%_220%] px-3 py-6 text-white animate-degrade sm:px-6 sm:py-10">
@@ -473,7 +926,7 @@ export function PageConnexion() {
                 onClick={basculer}
                 className="rounded-full bg-gradient-to-r from-[#22d3ee] to-[#3b82f6] px-5 py-2 text-[11.5px] font-bold uppercase tracking-[.12em] text-white shadow-[0_8px_24px_-8px_rgb(34_211_238/.7)] transition-transform hover:scale-[1.04] active:scale-95"
               >
-                {t(inscription ? 'cx.seConnecter' : 'cx.sinscrire')}
+                {t(vue === 'connexion' ? 'cx.sinscrire' : 'cx.seConnecter')}
               </button>
             )}
           </div>
@@ -500,18 +953,18 @@ export function PageConnexion() {
             </div>
 
             <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 lg:bottom-14 lg:left-12">
-              <h1 key={inscription ? 'i' : 'c'} className="text-5xl font-bold animate-montee sm:text-6xl lg:text-7xl" style={{ animationDelay: '250ms' }}>
-                {t(inscription ? 'cx.bienvenue' : 'cx.bonRetour')}
+              <h1 key={vue === 'oubli' ? 'o' : inscription ? 'i' : 'c'} className="text-5xl font-bold animate-montee sm:text-6xl lg:text-7xl" style={{ animationDelay: '250ms' }}>
+                {t(vue === 'oubli' ? 'cx.pasDePanique' : inscription ? 'cx.bienvenue' : 'cx.bonRetour')}
                 <span className="text-[#ff4fd8]">.</span>
               </h1>
               <p className="mt-3 max-w-md text-[14px] leading-relaxed text-white/70 animate-montee sm:text-[15px]" style={{ animationDelay: '380ms' }}>
-                {t('cx.accroche')}
+                {t(vue === 'oubli' ? 'cx.accrocheOubli' : 'cx.accroche')}
               </p>
-              {peutBasculer && (
+              {peutBasculer && vue !== 'oubli' && (
                 <p className="mt-4 hidden text-[13px] text-white/60 animate-montee lg:block" style={{ animationDelay: '480ms' }}>
-                  {t(inscription ? 'cx.dejaCompte' : 'cx.pasCompte')}{' '}
+                  {t(vue === 'connexion' ? 'cx.pasCompte' : 'cx.dejaCompte')}{' '}
                   <button type="button" onClick={basculer} className="font-semibold text-white underline decoration-[#ff4fd8] decoration-2 underline-offset-4 hover:text-[#ffb3ef]">
-                    {t(inscription ? 'cx.seConnecter' : 'cx.creerCompte')}
+                    {t(vue === 'connexion' ? 'cx.creerCompte' : 'cx.seConnecter')}
                   </button>
                 </p>
               )}
@@ -521,29 +974,59 @@ export function PageConnexion() {
           <div className="order-2 hidden bg-gradient-to-b from-transparent via-white/15 to-transparent lg:block" />
 
           {/* Formulaires */}
-          <div key={inscription ? 'inscription' : 'connexion'} className="order-3 flex flex-col justify-center px-6 py-10 sm:px-12 lg:order-1 lg:py-12">
-            <div className={cn('relative mx-auto grid place-items-center animate-montee', inscription ? 'mb-4 size-16' : 'mb-6 size-20')} style={cascade(0)}>
+          <div key={vue} className="order-3 flex flex-col justify-center px-6 py-10 sm:px-12 lg:order-1 lg:py-12">
+            <div className={cn('relative mx-auto grid place-items-center animate-montee', compact ? 'mb-4 size-16' : 'mb-6 size-20')} style={cascade(0)}>
               <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,#22d3ee,#7c3aed,#ff3cac,#22d3ee)] p-[2px] animate-rotation-lente">
                 <div className="size-full rounded-full bg-[#1a1540]" />
               </div>
               <div className="absolute inset-2 rounded-full bg-[#7c3aed]/25 blur-md animate-halo" />
-              {premier ? <ShieldCheck className={cn('relative text-[#67e8f9]', inscription ? 'size-7' : 'size-9')} strokeWidth={1.6} /> : <UserRound className={cn('relative text-[#67e8f9]', inscription ? 'size-7' : 'size-9')} strokeWidth={1.6} />}
+              <IconeAvatar className={cn('relative text-[#67e8f9]', compact ? 'size-7' : 'size-9')} strokeWidth={1.6} />
             </div>
 
             <h2 className="text-center text-[26px] font-semibold animate-montee" style={cascade(1)}>
               {titre}
             </h2>
-            <p className={cn('mt-1.5 text-center text-[13.5px] text-white/60 animate-montee', inscription ? 'mb-6' : 'mb-7')} style={cascade(2)}>
+            <p className={cn('mt-1.5 text-center text-[13.5px] text-white/60 animate-montee', compact ? 'mb-6' : 'mb-7')} style={cascade(2)}>
               {sousTitre}
             </p>
 
-            {inscription ? <FormulaireInscription terminer={terminer} premier={premier} /> : <FormulaireConnexion terminer={terminer} />}
+            {vue === 'verification' && verification ? (
+              <div className="space-y-6">
+                {depuisInscription && (
+                  <div className="animate-montee" style={cascade(3)}>
+                    <Etapes etape={3} />
+                  </div>
+                )}
+                <Verification initial={verification} canaux={canaux} terminer={terminer} />
+              </div>
+            ) : vue === 'inscription' ? (
+              <FormulaireInscription premier={premier} canaux={canaux} verifier={verifier('inscription')} />
+            ) : vue === 'oubli' ? (
+              <FormulaireOubli
+                identifiantInitial={identifiant}
+                canaux={canaux}
+                retour={(id, ok) => {
+                  setIdentifiant(id);
+                  setSucces(ok ? t('cx.mdpChange') : null);
+                  setMode('connexion');
+                }}
+              />
+            ) : (
+              <FormulaireConnexion
+                key={identifiant + (succes ?? '')}
+                terminer={terminer}
+                verifier={verifier('connexion')}
+                oublier={(id) => (setIdentifiant(id), setSucces(null), setMode('oubli'))}
+                identifiantInitial={identifiant}
+                succes={succes}
+              />
+            )}
 
-            {peutBasculer && (
+            {peutBasculer && vue !== 'oubli' && (
               <p className="mt-6 text-center text-[13px] text-white/55 lg:hidden">
-                {t(inscription ? 'cx.dejaCompte' : 'cx.pasCompte')}{' '}
+                {t(vue === 'connexion' ? 'cx.pasCompte' : 'cx.dejaCompte')}{' '}
                 <button type="button" onClick={basculer} className="font-semibold text-[#f0abfc] hover:underline">
-                  {t(inscription ? 'cx.seConnecter' : 'cx.creerCompte')}
+                  {t(vue === 'connexion' ? 'cx.creerCompte' : 'cx.seConnecter')}
                 </button>
               </p>
             )}

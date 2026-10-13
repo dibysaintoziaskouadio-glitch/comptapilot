@@ -156,10 +156,11 @@ Les erreurs sont uniformes : `{ erreur: { code, message, details? } }`. `ErreurE
 
 | Table | Contenu |
 |---|---|
-| `utilisateurs` | e-mail, nom, mot de passe (bcrypt), rôle `ADMIN` / `COMPTABLE` / `LECTEUR`, langue et monnaie préférées |
+| `utilisateurs` | e-mail, téléphone (E.164), dates de confirmation, nom, mot de passe (bcrypt), rôle `ADMIN` / `COMPTABLE` / `LECTEUR`, langue et monnaie préférées |
+| `codes_verification` | codes à usage unique : objet (e-mail, téléphone, réinitialisation), canal, destination, empreinte, essais, expiration |
 | `calculs` | journal : formule et version, libellé, entrées, résultat complet (JSON), résultat principal (libellé, valeur, unité), monnaie de saisie, empreinte, statut `BROUILLON` / `VALIDE`, nombre d'erreurs et d'avertissements |
 | `versions_baremes` | historique de chaque version (unique par code et date de début), statut, origine `BIBLIOTHEQUE` ou `SAISIE`, auteur |
-| `journal_audit` | inscriptions, validations de calculs depuis l'historique, saisies de barèmes |
+| `journal_audit` | inscriptions, confirmations de compte, connexions, réinitialisations de mot de passe, validations de calculs depuis l'historique, saisies de barèmes |
 
 Le résultat complet est conservé tel qu'il a été produit : réouvrir un calcul archivé montre les taux et la version de formule de l'époque, même si le moteur a évolué depuis.
 
@@ -178,6 +179,11 @@ Une saisie via `POST /api/baremes/{code}/versions` est appliquée immédiatement
 
 - Mots de passe bcrypt ; session JWT signée (`JWT_SECRET` ≥ 32 caractères) dans un cookie httpOnly `SameSite=Lax`, `Secure` si `COOKIE_SECURE=true`.
 - Le premier compte créé devient administrateur ; `ALLOW_REGISTRATION=false` ferme l'inscription libre.
+- **Confirmation du compte** (`modules/verification/codes.ts`, `modules/notifications/`) : à l'inscription, un code est envoyé par e-mail et un autre par SMS ou WhatsApp ; le compte n'ouvre de session qu'une fois les deux confirmés. Entre-temps, le client manipule un jeton de vérification de 30 minutes, signé avec un émetteur distinct de celui des sessions (il ne peut pas servir de session). Une inscription jamais confirmée ne bloque ni l'adresse ni le numéro.
+- **Codes** : 6 chiffres (`crypto.randomInt`), empreinte HMAC-SHA256 seule en base (`codes_verification`), comparaison à temps constant, 10 minutes, 5 essais, 60 s entre deux envois, 5 envois par heure ; un nouvel envoi invalide le précédent.
+- **Mot de passe oublié** : réponse identique que le compte existe ou non ; le code est à usage unique et confirme au passage l'adresse ou le numéro utilisé.
+- **Envoi** : SMTP (nodemailer) pour l'e-mail, API REST Twilio pour le SMS et WhatsApp. Sans fournisseur, `CODES_VISIBLES=true` renvoie le code dans la réponse (démonstration uniquement).
+- **Téléphones** validés et normalisés au format E.164 (`libphonenumber-js`), uniques par compte.
 - `helmet`, CORS restreint à `CORS_ORIGINS`, 20 tentatives d'authentification par quart d'heure, corps JSON limité à 6 Mo (taille d'un FEC).
 - Toutes les entrées passent par Zod (API) puis par la validation typée du moteur.
 

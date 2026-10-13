@@ -3,9 +3,15 @@ export class ErreurApi extends Error {
     public statut: number,
     public code: string,
     message: string,
-    public details?: { champ: string; message: string }[],
+    public details?: { champ: string; message: string }[] | Record<string, unknown>,
+    /** Corps complet de la réponse (ex. état de vérification joint à COMPTE_NON_VERIFIE). */
+    public corps?: Record<string, unknown>,
   ) {
     super(message);
+  }
+  /** Détails par champ, quand l'API en fournit une liste. */
+  get champs(): { champ: string; message: string }[] {
+    return Array.isArray(this.details) ? this.details : [];
   }
 }
 
@@ -21,7 +27,7 @@ export async function api<T>(chemin: string, options: RequestInit & { json?: unk
   const corps = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401 && !chemin.startsWith('/auth')) window.dispatchEvent(new Event('session-expiree'));
-    throw new ErreurApi(r.status, corps?.erreur?.code ?? 'ERREUR', corps?.erreur?.message ?? `Erreur ${r.status}`, corps?.erreur?.details);
+    throw new ErreurApi(r.status, corps?.erreur?.code ?? 'ERREUR', corps?.erreur?.message ?? `Erreur ${r.status}`, corps?.erreur?.details, corps);
   }
   return corps as T;
 }
