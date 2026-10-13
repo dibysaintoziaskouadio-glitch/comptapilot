@@ -60,6 +60,13 @@ export const fr = {
   'nav.menu': 'Menu',
   'nav.fermerMenu': 'Fermer le menu',
 
+  // Application installable
+  'pwa.titre': 'Installer Comptapilot',
+  'pwa.texte': 'Ajoutez l’application à votre écran d’accueil : elle s’ouvre en plein écran, comme une application.',
+  'pwa.installer': 'Installer',
+  'pwa.ios': 'Sur iPhone : touchez le bouton Partager, puis « Sur l’écran d’accueil ».',
+  'pwa.plusTard': 'Plus tard',
+
   // Préférences
   'prefs.titre': 'Langue et monnaie',
   'prefs.langue': 'Langue de l’interface',
@@ -372,6 +379,12 @@ export const en: Record<Cle, Texte> = {
   'nav.deconnexion': 'Sign out',
   'nav.menu': 'Menu',
   'nav.fermerMenu': 'Close menu',
+
+  'pwa.titre': 'Install Comptapilot',
+  'pwa.texte': 'Add the app to your home screen: it opens full screen, like a native app.',
+  'pwa.installer': 'Install',
+  'pwa.ios': 'On iPhone: tap the Share button, then “Add to Home Screen”.',
+  'pwa.plusTard': 'Later',
 
   'prefs.titre': 'Language and currency',
   'prefs.langue': 'Interface language',

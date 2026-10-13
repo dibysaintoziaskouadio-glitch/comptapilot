@@ -29,6 +29,11 @@ class FiletErreur extends Component<{ children: ReactNode }, { erreur: Error | n
 
 const client = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } });
 
+// Application installable (Android, iPhone) : service worker en production uniquement.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined));
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <FiletErreur>

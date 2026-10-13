@@ -7,6 +7,7 @@ import { Gabarit } from '@/components/layout/Gabarit';
 import { useSession } from '@/hooks/useDonnees';
 import { useTheme } from '@/hooks/useTheme';
 import { PageConnexion } from '@/pages/Connexion';
+import { InviteInstallation } from '@/components/InviteInstallation';
 
 // Pages chargées à la demande : l'écran de connexion s'affiche sans attendre les graphiques et les moteurs.
 const PageTableauDeBord = lazy(() => import('@/pages/TableauDeBord').then((m) => ({ default: m.PageTableauDeBord })));
@@ -58,6 +59,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      <InviteInstallation />
       <Toaster richColors position="bottom-right" theme={sombre ? 'dark' : 'light'} />
     </BrowserRouter>
   );
