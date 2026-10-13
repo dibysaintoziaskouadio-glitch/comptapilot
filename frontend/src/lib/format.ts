@@ -1,46 +1,108 @@
+/**
+ * Mise en forme des valeurs selon la langue et la monnaie de l'utilisateur.
+ * Les valeurs arrivent du moteur en chaînes décimales exactes ; elles ne passent jamais par un nombre flottant,
+ * y compris pour l'arrondi d'affichage (fait sur la chaîne).
+ * La configuration est fixée par PreferencesProvider (configurerFormat) avant le rendu des pages.
+ */
 import type { Unite } from './types';
+import type { Langue } from './i18n/dictionnaires';
+import { formatDevise } from './devises';
 
-const nf = (min: number, max: number) => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: min, maximumFractionDigits: max });
-const cache = new Map<string, Intl.NumberFormat>();
-const fmt = (min: number, max: number) => {
-  const k = `${min}-${max}`;
-  if (!cache.has(k)) cache.set(k, nf(min, max));
-  return cache.get(k)!;
-};
+let langue: Langue = 'fr';
+let devise = 'EUR';
 
-/** Nombre décimal transmis en chaîne → affichage français (sans perte : on ne passe par Number que pour l'affichage). */
-export function nombre(v: string, decimalesMin = 0, decimalesMax = 6): string {
-  if (v === '' || v === undefined || v === null) return '';
-  const [ent, dec = ''] = v.replace('-', '').split('.');
-  const signe = v.startsWith('-') ? '−' : '';
-  // Espace insécable normale : l'espace fine est quasi invisible en Figtree et Sora.
-  const entierFormate = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
-  const d = dec.slice(0, decimalesMax).replace(/0+$/, '').padEnd(decimalesMin, '0');
-  return signe + entierFormate + (d ? ',' + d : '');
+export function configurerFormat(l: Langue, d: string): void {
+  langue = l;
+  devise = d;
+}
+export const deviseCourante = () => devise;
+export const locale = () => (langue === 'fr' ? 'fr-FR' : 'en-GB');
+
+// Espace insécable normale en français : l'espace fine est quasi invisible en Figtree et Sora.
+const separateurs = () => (langue === 'fr' ? { groupe: ' ', decimale: ',' } : { groupe: ',', decimale: '.' });
+
+/** Arrondi commercial (demi vers le haut, en valeur absolue) d'une chaîne décimale à `n` décimales. */
+export function arrondir(v: string, n: number): string {
+  const m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(v.trim());
+  if (!m) return v;
+  const [, signe, ent = '0', dec = ''] = m;
+  const echelle = BigInt(`${ent || '0'}${dec.padEnd(n + 1, '0').slice(0, n + 1)}`);
+  const arrondi = (echelle + 5n) / 10n;
+  const s = arrondi.toString().padStart(n + 1, '0');
+  const r = n ? `${s.slice(0, -n)}.${s.slice(-n)}` : s;
+  return arrondi === 0n ? r : signe + r;
 }
 
-export function valeur(v: string, unite?: Unite | string): string {
+/** Nombre décimal transmis en chaîne → affichage localisé, entre `decimalesMin` et `decimalesMax` décimales. */
+export function nombre(v: string, decimalesMin = 0, decimalesMax = 6): string {
+  if (v === '' || v === undefined || v === null) return '';
+  if (!/^-?\d*(\.\d*)?$/.test(v)) return v;
+  const { groupe, decimale } = separateurs();
+  const a = arrondir(v, decimalesMax);
+  const [ent, dec = ''] = a.replace('-', '').split('.');
+  const signe = a.startsWith('-') ? '−' : '';
+  const d = dec.replace(/0+$/, '').padEnd(decimalesMin, '0');
+  return signe + ent.replace(/\B(?=(\d{3})+(?!\d))/g, groupe) + (d ? decimale + d : '');
+}
+
+/** Montant dans la monnaie courante (ou celle indiquée), arrondi au nombre de décimales de la monnaie. */
+export function montant(v: string, code = devise): string {
+  const f = formatDevise(code, langue);
+  const n = nombre(v, f.decimales, f.decimales);
+  if (!f.avant) return `${n} ${f.symbole}`;
+  const signe = n.startsWith('−') ? '−' : '';
+  const abs = signe ? n.slice(1) : n;
+  // « $1,234.50 » mais « CHF 1,234.50 » : espace seulement après un symbole alphabétique.
+  return `${signe}${f.symbole}${/[A-Za-z]$/.test(f.symbole) ? ' ' : ''}${abs}`;
+}
+
+/** Symbole de la monnaie courante (suffixe des champs de saisie de montants). */
+export const symboleDevise = (code = devise) => formatDevise(code, langue).symbole;
+
+/**
+ * Textes produits par le moteur (étapes, contrôles) : ils sont rédigés en euros ;
+ * le symbole est remplacé par celui de la monnaie choisie, sans conversion des nombres.
+ */
+export function texteMoteur(s: string, code = devise): string {
+  return code === 'EUR' ? s : s.replace(/€/g, symboleDevise(code));
+}
+
+const UNITES: Record<Langue, Record<string, (n: string, v: string) => string>> = {
+  fr: {
+    jours: (n) => `${n} j`,
+    mois: (n) => `${n} mois`,
+    annees: (n, v) => `${n} an${Number(v) >= 2 ? 's' : ''}`,
+    heures: (n) => `${n} h`,
+    fois: (n) => `${n} ×`,
+  },
+  en: {
+    jours: (n, v) => `${n} day${Number(v) === 1 ? '' : 's'}`,
+    mois: (n, v) => `${n} month${Number(v) === 1 ? '' : 's'}`,
+    annees: (n, v) => `${n} year${Number(v) === 1 ? '' : 's'}`,
+    heures: (n) => `${n} h`,
+    fois: (n) => `${n} ×`,
+  },
+};
+
+export function valeur(v: string, unite?: Unite | string, code = devise): string {
   switch (unite) {
     case 'EUR':
-      return `${nombre(v, 2, 2)}\u00a0€`;
+      return montant(v, code);
     case 'devise':
       return nombre(v, 2, 2);
     case '%':
-      return `${nombre(v, 0, 4)}\u00a0%`;
+      return langue === 'fr' ? `${nombre(v, 0, 4)} %` : `${nombre(v, 0, 4)}%`;
     case 'jours':
-      return `${nombre(v)}\u00a0j`;
     case 'mois':
-      return `${nombre(v)}\u00a0mois`;
-    case 'annees':
-      return `${nombre(v, 0, 2)}\u00a0an${Number(v) >= 2 ? 's' : ''}`;
     case 'heures':
-      return `${nombre(v)}\u00a0h`;
+      return UNITES[langue][unite](nombre(v), v);
+    case 'annees':
     case 'fois':
-      return `${nombre(v, 0, 2)}\u00a0×`;
+      return UNITES[langue][unite](nombre(v, 0, 2), v);
     case 'date':
       return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.split('-').reverse().join('/') : v;
     case 'booleen':
-      return v === 'oui' ? 'Oui' : 'Non';
+      return v === 'oui' ? (langue === 'fr' ? 'Oui' : 'Yes') : langue === 'fr' ? 'Non' : 'No';
     case 'texte':
       return v;
     case 'entier':
@@ -51,7 +113,8 @@ export function valeur(v: string, unite?: Unite | string): string {
   }
 }
 
-export const dateHeure = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+export const dateHeure = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' });
 /** « 2026-10-13 » est lu comme un jour local (et non minuit UTC) pour ne pas glisser d'un jour. */
-export const dateCourte = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-export { fmt };
+export const dateCourte = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso)).toLocaleDateString(locale(), { day: '2-digit', month: 'short' });
+/** Durée d'exécution en millisecondes, au format de la langue. */
+export const duree = (ms: number) => ms.toLocaleString(locale(), { maximumFractionDigits: 3 });

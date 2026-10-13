@@ -4,6 +4,7 @@ import { catalogue, decrireFormule, executerFormule, obtenirFormule, ResultatCal
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { limiteCalculs } from '../../middlewares/limites';
+import { DEVISES } from '../../config/preferences';
 import { empreinte } from '../../utils/empreinte';
 import { ErreurApi, nonTrouve } from '../../utils/erreurs';
 import { valider } from '../../utils/validation';
@@ -35,10 +36,13 @@ const schemaExecution = z.object({
   enregistrer: z.boolean().default(false),
   valider: z.boolean().default(false),
   libelle: z.string().trim().max(200).optional(),
+  /** Monnaie de saisie, archivée avec le calcul (affichage seulement). */
+  devise: z.enum(DEVISES).default('EUR'),
 });
 
-export function empreinteResultat(r: ResultatCalcul): string {
-  return empreinte({ formule: r.formule.id, moteur: r.formule.moteur, version: r.formule.version, entrees: r.entrees, resultats: r.resultats });
+/** Empreinte du calcul ; la monnaie n'y entre que si elle diffère de l'euro (empreintes antérieures inchangées). */
+export function empreinteResultat(r: ResultatCalcul, devise = 'EUR'): string {
+  return empreinte({ formule: r.formule.id, moteur: r.formule.moteur, version: r.formule.version, entrees: r.entrees, resultats: r.resultats, ...(devise !== 'EUR' && { devise }) });
 }
 
 /**
@@ -50,7 +54,7 @@ routesCalc.post('/:moteur/:formule', limiteCalculs, async (req, res) => {
   if (!f) throw nonTrouve('Formule');
   const d = valider(schemaExecution, req.body);
   const r = executerFormule(f, d.entrees);
-  const hash = empreinteResultat(r);
+  const hash = empreinteResultat(r, d.devise);
   let calculId: string | undefined;
   if (d.enregistrer) {
     if (req.session!.role === 'LECTEUR') throw new ErreurApi(403, 'INTERDIT', 'Les lecteurs ne peuvent pas enregistrer de calcul.');
@@ -65,7 +69,10 @@ routesCalc.post('/:moteur/:formule', limiteCalculs, async (req, res) => {
         libelle: d.libelle,
         entrees: r.entrees as Prisma.InputJsonValue,
         resultat: r as unknown as Prisma.InputJsonValue,
-        principal: principal ? `${principal.libelle} : ${principal.valeur}${principal.unite === 'EUR' ? ' €' : principal.unite === '%' ? ' %' : ''}` : null,
+        principal: principal?.libelle ?? null,
+        principalValeur: principal?.valeur ?? null,
+        principalUnite: principal?.unite ?? null,
+        devise: d.devise,
         empreinte: hash,
         nbErreurs: r.controles.filter((x) => x.niveau === 'erreur').length,
         nbAvertissements: r.controles.filter((x) => x.niveau === 'avertissement').length,

@@ -38,6 +38,8 @@ model Utilisateur {
   nom          String
   motDePasse   String
   role         Role      @default(COMPTABLE)
+  langue       String    @default("fr")   /// Langue de l'interface (fr, en)
+  devise       String    @default("EUR")  /// Monnaie d'affichage (code ISO 4217)
   creeLe       DateTime  @default(now())
   derniereConnexion DateTime?
   calculs      Calcul[]
@@ -59,7 +61,10 @@ model Calcul {
   libelle         String?
   entrees         Json
   resultat        Json         /// ResultatCalcul complet (résultats, étapes, contrôles, tableaux, écritures, barèmes)
-  principal       String?      /// Valeur du premier résultat principal, pour l'affichage en liste
+  principal       String?      /// Libellé du premier résultat principal (anciens calculs : libellé et valeur formatée)
+  principalValeur String?      /// Valeur décimale du résultat principal
+  principalUnite  String?      /// Unité du résultat principal (EUR, %, nombre…)
+  devise          String       @default("EUR") /// Monnaie dans laquelle le calcul a été saisi (affichage seulement, aucune conversion)
   empreinte       String       /// SHA-256 de (formule, version, entrées normalisées, résultats)
   nbErreurs       Int          @default(0)
   nbAvertissements Int         @default(0)

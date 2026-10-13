@@ -91,7 +91,7 @@ export function Onglets<T extends string>({ valeur, onChange, onglets }: { valeu
   );
 }
 
-export function Dialogue({ ouvert, onFermer, titre, children, large }: { ouvert: boolean; onFermer: () => void; titre: ReactNode; children: ReactNode; large?: boolean }) {
+export function Dialogue({ ouvert, onFermer, titre, children, large, libelleFermer = 'Fermer' }: { ouvert: boolean; onFermer: () => void; titre: ReactNode; children: ReactNode; large?: boolean; libelleFermer?: string }) {
   useEffect(() => {
     if (!ouvert) return;
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onFermer();
@@ -104,7 +104,7 @@ export function Dialogue({ ouvert, onFermer, titre, children, large }: { ouvert:
       <div role="dialog" aria-modal className={cn('carte w-full animate-apparition shadow-flottant', large ? 'max-w-3xl' : 'max-w-lg')} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-bordure px-5 py-4">
           <h2 className="font-semibold">{titre}</h2>
-          <button onClick={onFermer} className="rounded-lg p-1 text-attenue hover:bg-surface-2" aria-label="Fermer">
+          <button onClick={onFermer} className="rounded-lg p-1 text-attenue hover:bg-surface-2" aria-label={libelleFermer}>
             <X className="size-4" />
           </button>
         </div>

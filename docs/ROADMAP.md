@@ -53,9 +53,11 @@ Objectif : passer du calcul isolé au dossier client.
 
 ## Étape 4 — Étendre le périmètre
 
-1. **Déclaratif.** Génération des fichiers réglementaires à partir des calculs : liasse 2033 et 2050, CA3 en EDI, éléments de DSN.
-2. **Paie conventionnelle.** Barèmes et règles des principales conventions collectives (minima, primes, maintien de salaire), régimes particuliers.
-3. **Consolidation complète.** Chaînage périmètre → retraitements → éliminations → états consolidés, sur plusieurs niveaux de détention.
-4. **Nouveaux secteurs.** Selon les dossiers des utilisateurs : hôtellerie-restauration, transport, santé, professions réglementées.
+1. **Formules en anglais et autres langues.** L'interface est traduite (français, anglais) ; le contenu des 163 formules (noms, champs, étapes, contrôles) reste en français. Le traduire suppose d'extraire ces textes du moteur dans des catalogues par langue.
+2. **Monnaies et référentiels non français.** La monnaie est aujourd'hui un affichage (aucune conversion). Pour un usage OHADA (SYSCOHADA) ou d'autres pays, il faudra des barèmes et plans de comptes propres, et des calculs arrondis à l'unité monétaire (sans centime pour le franc CFA).
+3. **Déclaratif.** Génération des fichiers réglementaires à partir des calculs : liasse 2033 et 2050, CA3 en EDI, éléments de DSN.
+4. **Paie conventionnelle.** Barèmes et règles des principales conventions collectives (minima, primes, maintien de salaire), régimes particuliers.
+5. **Consolidation complète.** Chaînage périmètre → retraitements → éliminations → états consolidés, sur plusieurs niveaux de détention.
+6. **Nouveaux secteurs.** Selon les dossiers des utilisateurs : hôtellerie-restauration, transport, santé, professions réglementées.
 
 Chaque ajout suit la même règle que l'existant : une formule n'est livrée qu'avec ses références légales, ses exemples vérifiés et ses barèmes datés.

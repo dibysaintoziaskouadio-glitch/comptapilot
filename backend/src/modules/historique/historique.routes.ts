@@ -33,7 +33,7 @@ routesHistorique.get('/', async (req, res) => {
       orderBy: { creeLe: 'desc' },
       skip: (p.page - 1) * p.parPage,
       take: p.parPage,
-      select: { id: true, moteur: true, formuleId: true, formuleNom: true, formuleVersion: true, libelle: true, principal: true, empreinte: true, nbErreurs: true, nbAvertissements: true, dureeMs: true, statut: true, valideLe: true, creeLe: true },
+      select: { id: true, moteur: true, formuleId: true, formuleNom: true, formuleVersion: true, libelle: true, principal: true, principalValeur: true, principalUnite: true, devise: true, empreinte: true, nbErreurs: true, nbAvertissements: true, dureeMs: true, statut: true, valideLe: true, creeLe: true },
     }),
   ]);
   res.json({ calculs, total, page: p.page, parPage: p.parPage });

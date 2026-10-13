@@ -9,12 +9,16 @@ import { ErreurApi } from '../../utils/erreurs';
 import { valider } from '../../utils/validation';
 import { journaliser } from '../audit';
 import { defautsMotDePasse } from '../../utils/motDePasse';
+import { DEVISES, LANGUES } from '../../config/preferences';
 
 const schemaInscription = z
   .object({
     email: z.string().trim().toLowerCase().email('Adresse e-mail invalide'),
     nom: z.string().trim().min(2, 'Nom trop court').max(100),
     motDePasse: z.string().max(200),
+    // Préférences choisies sur l'écran de connexion avant la création du compte.
+    langue: z.enum(LANGUES).optional(),
+    devise: z.enum(DEVISES).optional(),
   })
   .superRefine((d, ctx) => {
     const defauts = defautsMotDePasse(d.motDePasse, d.nom, d.email);
@@ -30,7 +34,14 @@ const optionsCookie = () => ({
   path: '/',
 });
 
-const publique = (u: { id: string; email: string; nom: string; role: Session['role'] }) => ({ id: u.id, email: u.email, nom: u.nom, role: u.role });
+type LigneUtilisateur = { id: string; email: string; nom: string; role: Session['role']; langue: string; devise: string };
+/** Contenu du jeton de session (sans les préférences, relues en base à chaque /moi). */
+const session = (u: LigneUtilisateur): Session => ({ id: u.id, email: u.email, nom: u.nom, role: u.role });
+const publique = (u: LigneUtilisateur) => ({ ...session(u), langue: u.langue, devise: u.devise });
+
+const schemaPreferences = z
+  .object({ langue: z.enum(LANGUES).optional(), devise: z.enum(DEVISES).optional() })
+  .refine((d) => d.langue || d.devise, 'Aucune préférence transmise');
 
 export const routesAuth = Router();
 
@@ -40,9 +51,9 @@ routesAuth.post('/inscription', limiteAuth, async (req, res) => {
   if (nb > 0 && !env.ALLOW_REGISTRATION) throw new ErreurApi(403, 'INSCRIPTION_FERMEE', 'Les inscriptions sont fermées.');
   if (await prisma.utilisateur.findUnique({ where: { email: d.email } })) throw new ErreurApi(409, 'EMAIL_UTILISE', 'Cette adresse est déjà utilisée.');
   // Le premier compte créé administre l'application.
-  const u = await prisma.utilisateur.create({ data: { email: d.email, nom: d.nom, motDePasse: await bcrypt.hash(d.motDePasse, 12), role: nb === 0 ? 'ADMIN' : 'COMPTABLE' } });
+  const u = await prisma.utilisateur.create({ data: { email: d.email, nom: d.nom, motDePasse: await bcrypt.hash(d.motDePasse, 12), role: nb === 0 ? 'ADMIN' : 'COMPTABLE', langue: d.langue, devise: d.devise } });
   await journaliser(u.id, 'INSCRIPTION', u.email);
-  res.cookie(COOKIE_SESSION, signer(publique(u)), optionsCookie());
+  res.cookie(COOKIE_SESSION, signer(session(u)), optionsCookie());
   res.status(201).json({ utilisateur: publique(u) });
 });
 
@@ -53,7 +64,7 @@ routesAuth.post('/connexion', limiteAuth, async (req, res) => {
   const ok = await bcrypt.compare(d.motDePasse, u?.motDePasse ?? '$2b$12$invalideinvalideinvalideinvalideinvalideinvalideinval');
   if (!u || !ok) throw new ErreurApi(401, 'IDENTIFIANTS', 'E-mail ou mot de passe incorrect.');
   await prisma.utilisateur.update({ where: { id: u.id }, data: { derniereConnexion: new Date() } });
-  res.cookie(COOKIE_SESSION, signer(publique(u)), optionsCookie());
+  res.cookie(COOKIE_SESSION, signer(session(u)), optionsCookie());
   res.json({ utilisateur: publique(u) });
 });
 
@@ -66,6 +77,13 @@ routesAuth.get('/moi', authentifier, async (req, res) => {
   const u = await prisma.utilisateur.findUnique({ where: { id: req.session!.id } });
   if (!u) throw new ErreurApi(401, 'NON_AUTHENTIFIE', 'Session expirée');
   res.json({ utilisateur: publique(u), inscriptionOuverte: env.ALLOW_REGISTRATION });
+});
+
+/** PATCH /api/auth/preferences — langue de l'interface et monnaie d'affichage de l'utilisateur. */
+routesAuth.patch('/preferences', authentifier, async (req, res) => {
+  const d = valider(schemaPreferences, req.body);
+  const u = await prisma.utilisateur.update({ where: { id: req.session!.id }, data: d });
+  res.json({ utilisateur: publique(u) });
 });
 
 routesAuth.get('/etat', async (_req, res) => {

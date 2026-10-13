@@ -39,14 +39,23 @@ async function connecter(contexte) {
   if (!r.ok()) throw new Error(`Connexion impossible : HTTP ${r.status()} ${await r.text()}`);
 }
 
-async function nouvellePage(navigateur, { sombre = false, mobile = false, connecte = true } = {}) {
+/** Préférences du compte de démonstration (langue, monnaie), via l'API. */
+async function preferences(navigateur, langue, devise) {
+  const c = await navigateur.newContext();
+  await c.addCookies(session);
+  const r = await c.request.patch(`${BASE}/api/auth/preferences`, { data: { langue, devise }, timeout: DELAI_ACTION });
+  await c.close();
+  if (!r.ok()) throw new Error(`Préférences ${langue}/${devise} : HTTP ${r.status()}`);
+}
+
+async function nouvellePage(navigateur, { sombre = false, mobile = false, connecte = true, langue = 'fr' } = {}) {
   const contexte = await navigateur.newContext({
     viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     deviceScaleFactor: mobile ? 2 : 1,
     locale: 'fr-FR',
     colorScheme: sombre ? 'dark' : 'light',
   });
-  await contexte.addInitScript((t) => localStorage.setItem('theme', t), sombre ? 'dark' : 'light');
+  await contexte.addInitScript(([t, l]) => (localStorage.setItem('theme', t), localStorage.setItem('langue', l), localStorage.setItem('devise', 'EUR')), [sombre ? 'dark' : 'light', langue]);
   if (connecte) await contexte.addCookies(session);
   const page = await contexte.newPage();
   page.setDefaultTimeout(DELAI_ACTION);
@@ -62,7 +71,7 @@ async function aller(page, route) {
 }
 
 /** Attend la fin du calcul en direct (indicateur « Calculé en … ms »). */
-const attendreCalcul = (page) => page.getByText(/Calculé en/).first().waitFor({ timeout: DELAI_CALCUL });
+const attendreCalcul = (page) => page.getByText(/Calculé en|Calculated in/).first().waitFor({ timeout: DELAI_CALCUL });
 
 async function capturer(page, nom, { pleinePage = false } = {}) {
   await page.waitForTimeout(400); // fin des animations d'apparition
@@ -98,6 +107,7 @@ async function formule(page, route, nom, opts) {
     await connecter(prepa);
     session = await prepa.cookies();
     await prepa.close();
+    await preferences(navigateur, 'fr', 'EUR');
     const anonyme = await nouvellePage(navigateur, { connecte: false });
     await etape('connexion', async () => {
       await aller(anonyme, '/connexion');
@@ -192,7 +202,40 @@ async function formule(page, route, nom, opts) {
       await capturer(mc, '14-mobile-connexion', { pleinePage: true });
     });
     await mc.context().close();
+
+    console.log('Anglais, franc CFA');
+    await preferences(navigateur, 'en', 'XOF');
+    const e = await nouvellePage(navigateur);
+    await etape('accueil anglais', async () => {
+      await aller(e, '/');
+      await e.getByText(/engines/i).first().waitFor();
+      await e.waitForTimeout(1200);
+      await capturer(e, '15-en-accueil');
+    });
+    await etape('bulletin anglais FCFA', () => formule(e, '/calcul/paie/bulletin', '16-en-bulletin-xof', { pleinePage: true }));
+    await etape('emprunt anglais FCFA', async () => {
+      await aller(e, '/calcul/tresorerie/emprunt');
+      await attendreCalcul(e);
+      await e.getByRole('tab', { name: /Tables/ }).first().click();
+      await capturer(e, '17-en-emprunt-xof', { pleinePage: true });
+    });
+    await etape('menu des préférences', async () => {
+      await aller(e, '/');
+      await e.getByRole('button', { name: 'Language and currency' }).click();
+      await e.getByRole('dialog', { name: 'Language and currency' }).waitFor();
+      await capturer(e, '18-en-preferences');
+    });
+    await e.context().close();
+    const ea = await nouvellePage(navigateur, { connecte: false, langue: 'en' });
+    await etape('connexion anglais', async () => {
+      await aller(ea, '/connexion');
+      await ea.getByText('Welcome back').waitFor();
+      await ea.waitForTimeout(1500);
+      await capturer(ea, '19-en-connexion');
+    });
+    await ea.context().close();
   } finally {
+    if (session) await preferences(navigateur, 'fr', 'EUR').catch((x) => echecs.push(`restauration des préférences : ${x.message}`));
     await navigateur.close();
     clearTimeout(chien);
   }

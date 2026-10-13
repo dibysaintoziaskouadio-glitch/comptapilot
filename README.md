@@ -75,6 +75,15 @@ scripts/    captures d'écran (Playwright)
 
 L'architecture détaillée (cycle d'un calcul, contexte, barèmes, API, modèle de données, ajout d'une formule) est décrite dans **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
+## Langue et monnaie
+
+Chaque utilisateur choisit, depuis le menu **Langue et monnaie** de l'en-tête (ou à l'inscription) :
+
+- la **langue de l'interface** : français ou anglais. Le contenu des formules (noms, explications, étapes, références légales) reste en français : il décrit le droit français ;
+- la **monnaie d'affichage**, parmi 18 : franc CFA (XOF, XAF), euro, dollar, livre, franc suisse, dirham, naira, cedi, rand, yen… **Aucune conversion** n'est appliquée : la monnaie indique l'unité dans laquelle on saisit et lit les montants. Les calculs restent au centime ; l'affichage est arrondi selon la monnaie (sans décimale pour le franc CFA).
+
+Les préférences sont enregistrées sur le compte. Chaque calcul archivé conserve sa monnaie de saisie. Une formule qui applique des barèmes légaux français en euros (paie, fiscalité…) l'indique quand une autre monnaie est choisie.
+
 ## API
 
 Toutes les routes sauf `/api/auth/*` et `/api/sante` exigent une session (cookie `compta_session` ou en-tête `Authorization: Bearer`).
@@ -83,7 +92,7 @@ Toutes les routes sauf `/api/auth/*` et `/api/sante` exigent une session (cookie
 POST /api/calc/tva/ht-ttc
 Content-Type: application/json
 
-{ "entrees": { "connu": "ht", "montant": "1000", "taux": "20" }, "enregistrer": false }
+{ "entrees": { "connu": "ht", "montant": "1000", "taux": "20" }, "enregistrer": false, "devise": "EUR" }
 ```
 
 ```jsonc
@@ -112,6 +121,7 @@ Les montants circulent en chaînes décimales, jamais en nombres JSON. Une entr�
 | `GET /api/historique` | journal de l'utilisateur, filtrable (`moteur`, `statut`, `q`) et paginé |
 | `GET /api/historique/statistiques` | compteurs et activité sur 14 jours |
 | `GET · PATCH · DELETE /api/historique/{id}` | détail, validation, libellé, suppression (refusée si validé) |
+| `PATCH /api/auth/preferences` | langue (`fr`, `en`) et monnaie (code ISO 4217) de l'utilisateur |
 | `GET /api/baremes` | barèmes, versions, version en vigueur, obsolescence |
 | `POST /api/baremes/{code}/versions` | nouvelle version (administrateur) |
 

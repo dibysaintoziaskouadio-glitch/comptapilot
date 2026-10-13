@@ -5,11 +5,13 @@ import { CornerDownLeft, Search } from 'lucide-react';
 import { useCatalogue } from '@/hooks/useDonnees';
 import { apparence, pastille } from '@/lib/moteurs';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 
 const normaliser = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
   const { moteurs } = useCatalogue();
+  const { t, nomMoteur } = useT();
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const nav = useNavigate();
@@ -19,9 +21,9 @@ export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFerm
   const index = useMemo(
     () =>
       moteurs.flatMap((m) =>
-        m.formules.map((f) => ({ f, m, texte: normaliser([f.nom, f.description, f.categorie, m.nom, f.id, ...f.motsCles, ...f.references.map((r) => r.texte)].join(' ')) })),
+        m.formules.map((f) => ({ f, m, texte: normaliser([f.nom, f.description, f.categorie, m.nom, nomMoteur(m), f.id, ...f.motsCles, ...f.references.map((r) => r.texte)].join(' ')) })),
       ),
-    [moteurs],
+    [moteurs, nomMoteur],
   );
   const resultats = useMemo(() => {
     const mots = normaliser(q).split(/\s+/).filter(Boolean);
@@ -67,13 +69,13 @@ export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFerm
               if (e.key === 'Enter') aller(sel);
               if (e.key === 'Escape') onFermer();
             }}
-            placeholder="Rechercher parmi les formules : TVA sur marge, bulletin, VAN, CMP…"
+            placeholder={t('palette.placeholder')}
             className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-attenue"
           />
-          <kbd className="rounded-md border border-bordure px-1.5 py-0.5 text-[11px] text-attenue">Échap</kbd>
+          <kbd className="rounded-md border border-bordure px-1.5 py-0.5 text-[11px] text-attenue">{t('palette.echap')}</kbd>
         </div>
         <div ref={liste} className="max-h-[55vh] overflow-y-auto p-2 barre-defilement">
-          {resultats.length === 0 && <p className="px-3 py-10 text-center text-sm text-attenue">Aucune formule ne correspond à « {q} ».</p>}
+          {resultats.length === 0 && <p className="px-3 py-10 text-center text-sm text-attenue">{t('palette.aucune', { q })}</p>}
           {resultats.map(({ f, m }, i) => {
             const a = apparence(m.code);
             return (
@@ -90,7 +92,7 @@ export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFerm
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{f.nom}</span>
                   <span className="block truncate text-xs text-attenue">
-                    {m.nom} · {f.categorie}
+                    {nomMoteur(m)} · {f.categorie}
                   </span>
                 </span>
                 {sel === i && <CornerDownLeft className="size-4 text-attenue" />}
@@ -99,8 +101,8 @@ export function PaletteCommandes({ ouvert, onFermer }: { ouvert: boolean; onFerm
           })}
         </div>
         <div className="flex items-center justify-between border-t border-bordure px-4 py-2 text-[11px] text-attenue">
-          <span>{index.length} formules indexées</span>
-          <span>↑ ↓ pour naviguer · Entrée pour ouvrir</span>
+          <span>{t('palette.indexees', { n: index.length })}</span>
+          <span>{t('palette.aide')}</span>
         </div>
       </div>
     </div>,

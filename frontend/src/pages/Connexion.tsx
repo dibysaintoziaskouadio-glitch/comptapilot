@@ -7,16 +7,21 @@
 import { useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck, User, UserRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck, User, UserRound } from 'lucide-react';
 import { api, ErreurApi } from '@/lib/api';
-import { emailValide, reglesMotDePasse, robustesse } from '@/lib/motDePasse';
+import { emailValide, LONGUEUR_MIN, reglesMotDePasse, robustesse } from '@/lib/motDePasse';
 import { LogoVision, MARQUE } from '@/components/Marque';
 import { OndeFluide } from '@/components/OndeFluide';
 import { cn } from '@/lib/utils';
+import { useT, type Cle } from '@/lib/i18n';
+import { BasculeLangue } from '@/components/layout/Preferences';
+import { DEVISES } from '@/lib/devises';
+import { montant } from '@/lib/format';
 
-const EXEMPLES: [string, string, string][] = [
-  ['TVA à 20 %', 'HT 1 000 €', '200,00 €'],
-  ['Annuité d’emprunt', '100 000 € · 5 ans · 4 %', '1 841,65 €'],
+/** Exemples affichés sur le visuel : libellé, détail (avec montant de base) et résultat, dans la monnaie choisie. */
+const EXEMPLES: { titre: Cle; detail: Cle; base: string; resultat: string }[] = [
+  { titre: 'cx.exTva', detail: 'cx.exTvaDetail', base: '1000', resultat: '200' },
+  { titre: 'cx.exAnnuite', detail: 'cx.exAnnuiteDetail', base: '100000', resultat: '1841.65' },
 ];
 
 /** Délai d'apparition en cascade des éléments du formulaire. */
@@ -73,8 +78,9 @@ function Saisie({
 
 /** Bouton œil des champs mot de passe. */
 function BoutonVoir({ voir, basculer }: { voir: boolean; basculer: () => void }) {
+  const { t } = useT();
   return (
-    <button type="button" onClick={basculer} className="grid size-8 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-white" aria-label={voir ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+    <button type="button" onClick={basculer} className="grid size-8 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-white" aria-label={t(voir ? 'cx.masquerMdp' : 'cx.afficherMdp')}>
       {voir ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
     </button>
   );
@@ -88,9 +94,10 @@ function useVerrMaj() {
 }
 
 function AlerteVerrMaj() {
+  const { t } = useT();
   return (
     <p className="mt-1.5 flex items-center gap-1.5 pl-4 text-[12px] text-[#fcd34d] animate-in fade-in">
-      <AlertTriangle className="size-3.5" /> Verrouillage des majuscules activé
+      <AlertTriangle className="size-3.5" /> {t('cx.verrMaj')}
     </p>
   );
 }
@@ -118,7 +125,6 @@ function ErreurServeur({ message }: { message: string }) {
   );
 }
 
-const messageErreur = (x: unknown) => (x instanceof ErreurApi ? (x.details?.[0]?.message ?? x.message) : 'Serveur injoignable. Vérifiez votre connexion.');
 
 // ─────────────────────────────── Connexion ───────────────────────────────
 
@@ -129,6 +135,7 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const verrMaj = useVerrMaj();
+  const { t, erreur: messageErreur } = useT();
 
   const soumettre = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,14 +154,14 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
   return (
     <form onSubmit={soumettre} className="space-y-4" noValidate>
       <div className="animate-montee" style={cascade(3)}>
-        <Saisie libelle="Adresse e-mail" icone={<Mail className="size-4" />} type="email" placeholder="vous@cabinet.fr" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+        <Saisie libelle={t('cx.email')} icone={<Mail className="size-4" />} type="email" placeholder={t('cx.emailPh')} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
       </div>
       <div className="animate-montee" style={cascade(4)}>
         <Saisie
-          libelle="Mot de passe"
+          libelle={t('cx.mdp')}
           icone={<Lock className="size-4" />}
           type={voir ? 'text' : 'password'}
-          placeholder="Votre mot de passe"
+          placeholder={t('cx.mdpPh')}
           value={mdp}
           onChange={(e) => setMdp(e.target.value)}
           autoComplete="current-password"
@@ -167,7 +174,7 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
       {erreur && <ErreurServeur message={erreur} />}
       <div className="pt-2">
         <BoutonPrincipal envoi={envoi} disabled={!email || !mdp} style={cascade(5)}>
-          Se connecter {!envoi && <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />}
+          {t('cx.seConnecter')} {!envoi && <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />}
         </BoutonPrincipal>
       </div>
     </form>
@@ -177,12 +184,13 @@ function FormulaireConnexion({ terminer }: { terminer: () => Promise<void> }) {
 // ─────────────────────────────── Inscription ───────────────────────────────
 
 function Etapes({ etape }: { etape: 1 | 2 }) {
+  const { t } = useT();
   const items = [
-    { n: 1, libelle: 'Identité' },
-    { n: 2, libelle: 'Sécurité' },
+    { n: 1, libelle: t('cx.identite') },
+    { n: 2, libelle: t('cx.securite') },
   ];
   return (
-    <ol className="flex items-center gap-3" aria-label={`Étape ${etape} sur 2`}>
+    <ol className="flex items-center gap-3" aria-label={t('cx.etape', { n: etape })}>
       {items.map((it, i) => {
         const fait = etape > it.n;
         const courant = etape === it.n;
@@ -211,14 +219,22 @@ function Etapes({ etape }: { etape: 1 | 2 }) {
 }
 
 function Robustesse({ mdp, nom, email }: { mdp: string; nom: string; email: string }) {
+  const { t } = useT();
   const regles = useMemo(() => reglesMotDePasse(mdp, nom, email), [mdp, nom, email]);
   const r = robustesse(mdp, regles);
+  const LIBELLES: Record<(typeof regles)[number]['id'], string> = {
+    longueur: t('cx.regleLongueur', { n: LONGUEUR_MIN }),
+    casse: t('cx.regleCasse'),
+    chiffre: t('cx.regleChiffre'),
+    special: t('cx.regleSpecial'),
+    personnel: t('cx.reglePersonnel'),
+  };
   return (
     <div className="mt-3 rounded-2xl border border-white/10 bg-white/[.04] p-4">
       <div className="flex items-center justify-between text-[12px]">
-        <span className="font-medium text-white/60">Robustesse</span>
+        <span className="font-medium text-white/60">{t('cx.robustesse')}</span>
         <span className="font-semibold transition-colors" aria-live="polite" style={{ color: r.niveau ? r.couleur : 'rgb(255 255 255 / .45)' }}>
-          {r.libelle}
+          {t(`cx.niveau${r.niveau}`)}
         </span>
       </div>
       <div className="mt-2 grid grid-cols-4 gap-1.5" aria-hidden>
@@ -226,11 +242,11 @@ function Robustesse({ mdp, nom, email }: { mdp: string; nom: string; email: stri
           <span key={n} className="h-1.5 rounded-full bg-white/10 transition-all duration-500" style={r.niveau >= n ? { background: r.couleur, boxShadow: `0 0 10px ${r.couleur}` } : undefined} />
         ))}
       </div>
-      <ul className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2" aria-label="Règles du mot de passe">
+      <ul className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2" aria-label={t('cx.regles')}>
         {regles.map((g) => (
           <li key={g.id} className={cn('flex items-center gap-2 text-[12px] transition-colors', g.ok ? 'text-[#a7f3d0]' : 'text-white/50')}>
             <span className={cn('grid size-4 shrink-0 place-items-center rounded-full transition-all', g.ok ? 'bg-[#34d399] text-[#0b2a1f] scale-100' : 'border border-white/25 scale-90')}>{g.ok && <Check className="size-2.5" strokeWidth={3.5} />}</span>
-            {g.libelle}
+            {LIBELLES[g.id]}
           </li>
         ))}
       </ul>
@@ -240,6 +256,7 @@ function Robustesse({ mdp, nom, email }: { mdp: string; nom: string; email: stri
 
 function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<void>; premier: boolean }) {
   const [etape, setEtape] = useState<1 | 2>(1);
+  const { t, devise, changer, erreur: messageErreur, langue } = useT();
   const [v, setV] = useState({ prenom: '', nom: '', email: '', mdp: '', confirmation: '' });
   const [touches, setTouches] = useState<Record<string, boolean>>({});
   const [voir, setVoir] = useState(false);
@@ -255,9 +272,9 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
 
   const nomComplet = `${v.prenom.trim()} ${v.nom.trim()}`.trim();
   const erreurs1 = {
-    prenom: v.prenom.trim().length < 2 ? 'Indiquez votre prénom' : null,
-    nom: v.nom.trim().length < 2 ? 'Indiquez votre nom' : null,
-    email: !emailValide(v.email) ? 'Adresse e-mail invalide' : null,
+    prenom: v.prenom.trim().length < 2 ? t('cx.errPrenom') : null,
+    nom: v.nom.trim().length < 2 ? t('cx.errNom') : null,
+    email: !emailValide(v.email) ? t('cx.errEmail') : null,
   };
   const etape1Ok = !erreurs1.prenom && !erreurs1.nom && !erreurs1.email;
   const regles = useMemo(() => reglesMotDePasse(v.mdp, nomComplet, v.email), [v.mdp, nomComplet, v.email]);
@@ -277,7 +294,7 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
     setErreur(null);
     setEnvoi(true);
     try {
-      await api('/auth/inscription', { method: 'POST', json: { email: v.email.trim(), nom: nomComplet, motDePasse: v.mdp } });
+      await api('/auth/inscription', { method: 'POST', json: { email: v.email.trim(), nom: nomComplet, motDePasse: v.mdp, langue, devise } });
       await terminer();
     } catch (x) {
       // Une adresse déjà utilisée se corrige à l'étape 1.
@@ -300,30 +317,51 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
         <form key="identite" onSubmit={continuer} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="animate-montee" style={cascade(4)}>
-              <Saisie libelle="Prénom" icone={<User className="size-4" />} placeholder="Camille" value={v.prenom} onChange={maj('prenom')} onBlur={toucher('prenom')} autoComplete="given-name" erreur={montrer('prenom')} etat={v.prenom && !erreurs1.prenom ? 'valide' : 'neutre'} autoFocus />
+              <Saisie libelle={t('cx.prenom')} icone={<User className="size-4" />} placeholder={t('cx.prenomPh')} value={v.prenom} onChange={maj('prenom')} onBlur={toucher('prenom')} autoComplete="given-name" erreur={montrer('prenom')} etat={v.prenom && !erreurs1.prenom ? 'valide' : 'neutre'} autoFocus />
             </div>
             <div className="animate-montee" style={cascade(5)}>
-              <Saisie libelle="Nom" icone={<User className="size-4" />} placeholder="Martin" value={v.nom} onChange={maj('nom')} onBlur={toucher('nom')} autoComplete="family-name" erreur={montrer('nom')} etat={v.nom && !erreurs1.nom ? 'valide' : 'neutre'} />
+              <Saisie libelle={t('cx.nom')} icone={<User className="size-4" />} placeholder={t('cx.nomPh')} value={v.nom} onChange={maj('nom')} onBlur={toucher('nom')} autoComplete="family-name" erreur={montrer('nom')} etat={v.nom && !erreurs1.nom ? 'valide' : 'neutre'} />
             </div>
           </div>
           <div className="animate-montee" style={cascade(6)}>
             <Saisie
-              libelle="Adresse e-mail professionnelle"
+              libelle={t('cx.emailPro')}
               icone={<Mail className="size-4" />}
               type="email"
-              placeholder="camille.martin@cabinet.fr"
+              placeholder={t('cx.emailProPh')}
               value={v.email}
               onChange={maj('email')}
               onBlur={toucher('email')}
               autoComplete="email"
               erreur={erreurEmail ?? montrer('email')}
               etat={v.email && !erreurs1.email ? 'valide' : 'neutre'}
-              aide="Elle servira d’identifiant de connexion."
+              aide={t('cx.emailAide')}
             />
           </div>
+          <div className="animate-montee" style={cascade(7)}>
+            <label htmlFor="devise-inscription" className="mb-1.5 block pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">
+              {t('cx.devise')}
+            </label>
+            <div className="relative">
+              <Coins className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-white/45" />
+              <select
+                id="devise-inscription"
+                value={devise}
+                onChange={(e) => changer({ devise: e.target.value })}
+                className="h-12 w-full appearance-none rounded-full border border-white/15 bg-white/[.06] pl-11 pr-10 text-[14px] text-white focus:border-[#a855f7] focus:outline-none [&>option]:bg-[#1a1540]"
+              >
+                {DEVISES.map((x) => (
+                  <option key={x.code} value={x.code}>
+                    {x.code} — {x.nom[langue]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-white/45" />
+            </div>
+          </div>
           <div className="pt-2">
-            <BoutonPrincipal envoi={false} style={cascade(7)}>
-              Continuer <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+            <BoutonPrincipal envoi={false} style={cascade(8)}>
+              {t('cx.continuer')} <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </BoutonPrincipal>
           </div>
         </form>
@@ -337,10 +375,10 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
           </p>
           <div className="animate-montee" style={cascade(1)}>
             <Saisie
-              libelle="Mot de passe"
+              libelle={t('cx.mdp')}
               icone={<KeyRound className="size-4" />}
               type={voir ? 'text' : 'password'}
-              placeholder="Choisissez un mot de passe"
+              placeholder={t('cx.mdpChoisir')}
               value={v.mdp}
               onChange={maj('mdp')}
               autoComplete="new-password"
@@ -354,30 +392,30 @@ function FormulaireInscription({ terminer, premier }: { terminer: () => Promise<
           </div>
           <div className="animate-montee" style={cascade(2)}>
             <Saisie
-              libelle="Confirmation du mot de passe"
+              libelle={t('cx.confirmation')}
               icone={<Lock className="size-4" />}
               type={voir ? 'text' : 'password'}
-              placeholder="Saisissez-le à nouveau"
+              placeholder={t('cx.confirmationPh')}
               value={v.confirmation}
               onChange={maj('confirmation')}
               onBlur={toucher('confirmation')}
               autoComplete="new-password"
               etat={correspond ? 'valide' : 'neutre'}
-              erreur={(touches.confirmation || v.confirmation.length >= v.mdp.length) && v.confirmation && !correspond ? 'Les deux mots de passe ne correspondent pas' : null}
-              aide={correspond ? 'Les mots de passe correspondent.' : undefined}
+              erreur={(touches.confirmation || v.confirmation.length >= v.mdp.length) && v.confirmation && !correspond ? t('cx.errCorrespond') : null}
+              aide={correspond ? t('cx.correspond') : undefined}
             />
           </div>
           {erreur && <ErreurServeur message={erreur} />}
           <div className="flex items-center gap-3 pt-2">
             <button type="button" onClick={() => setEtape(1)} className="flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-5 text-[13px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:bg-white/5 animate-montee" style={cascade(3)}>
-              <ArrowLeft className="size-4" /> Retour
+              <ArrowLeft className="size-4" /> {t('cx.retour')}
             </button>
             <BoutonPrincipal envoi={envoi} disabled={!mdpOk || !correspond} style={cascade(3)}>
-              {premier ? 'Créer l’administrateur' : 'Créer le compte'}
+              {t(premier ? 'cx.creerAdmin' : 'cx.creer')}
             </BoutonPrincipal>
           </div>
           <p className="flex items-center justify-center gap-1.5 text-[11.5px] text-white/40">
-            <ShieldCheck className="size-3.5" /> Mot de passe chiffré (bcrypt), jamais conservé en clair.
+            <ShieldCheck className="size-3.5" /> {t('cx.chiffre')}
           </p>
         </form>
       )}
@@ -396,13 +434,14 @@ export function PageConnexion() {
   const inscription = mode === 'inscription' || premier;
   const peutBasculer = !premier && !!etat.data?.inscriptionOuverte;
   const basculer = () => setMode(inscription ? 'connexion' : 'inscription');
+  const { t } = useT();
   const terminer = async () => {
     await qc.invalidateQueries({ queryKey: ['session'] });
     nav('/');
   };
 
-  const titre = premier ? 'Compte administrateur' : inscription ? 'Créer votre compte' : 'Connexion';
-  const sousTitre = premier ? 'Premier démarrage : ce compte administrera l’application.' : inscription ? 'Deux étapes, moins d’une minute.' : 'Accédez à vos moteurs de calcul.';
+  const titre = t(premier ? 'cx.titreAdmin' : inscription ? 'cx.titreInscription' : 'cx.titreConnexion');
+  const sousTitre = t(premier ? 'cx.sousAdmin' : inscription ? 'cx.sousInscription' : 'cx.sousConnexion');
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[linear-gradient(125deg,#3b2bd9,#7c2bf0_35%,#b026e8_65%,#e0309f)] bg-[length:220%_220%] px-3 py-6 text-white animate-degrade sm:px-6 sm:py-10">
@@ -418,22 +457,23 @@ export function PageConnexion() {
             <LogoVision className="size-10 ring-1 ring-white/15" />
             <div className="leading-tight">
               <p className="font-display text-[15px] font-bold uppercase tracking-[.14em]">Comptapilot</p>
-              <p className="text-[11px] tracking-wide text-white/55">par {MARQUE.societe}</p>
+              <p className="text-[11px] tracking-wide text-white/55">{t('commun.parSociete', { societe: MARQUE.societe })}</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <nav className="hidden items-center gap-6 text-[11px] font-semibold uppercase tracking-[.16em] text-white/55 md:flex" aria-label="Chiffres clés">
-              <span>163 formules</span>
-              <span>13 moteurs</span>
-              <span>Barèmes datés</span>
+          <div className="flex items-center gap-3 sm:gap-6">
+            <nav className="hidden items-center gap-6 text-[11px] font-semibold uppercase tracking-[.16em] text-white/55 lg:flex" aria-label={t('cx.chiffresCles')}>
+              <span>{t('cx.formules', { n: 163 })}</span>
+              <span>{t('cx.moteurs', { n: 13 })}</span>
+              <span>{t('cx.baremesDates')}</span>
             </nav>
+            <BasculeLangue />
             {peutBasculer && (
               <button
                 type="button"
                 onClick={basculer}
                 className="rounded-full bg-gradient-to-r from-[#22d3ee] to-[#3b82f6] px-5 py-2 text-[11.5px] font-bold uppercase tracking-[.12em] text-white shadow-[0_8px_24px_-8px_rgb(34_211_238/.7)] transition-transform hover:scale-[1.04] active:scale-95"
               >
-                {inscription ? 'Se connecter' : 'S’inscrire'}
+                {t(inscription ? 'cx.seConnecter' : 'cx.sinscrire')}
               </button>
             )}
           </div>
@@ -447,31 +487,31 @@ export function PageConnexion() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#1a1540] via-[#1a1540]/60 to-transparent" />
 
             <div className="absolute right-6 top-6 hidden flex-col gap-3 xl:flex">
-              {EXEMPLES.map(([t, e, v], i) => (
-                <div key={t} className="w-60 rounded-2xl border border-white/10 bg-white/[.06] px-4 py-3 shadow-[0_10px_30px_-12px_rgb(0_0_0/.5)] backdrop-blur-md animate-flottement" style={{ animationDelay: `${-i * 3}s` }}>
+              {EXEMPLES.map((x, i) => (
+                <div key={x.titre} className="w-60 rounded-2xl border border-white/10 bg-white/[.06] px-4 py-3 shadow-[0_10px_30px_-12px_rgb(0_0_0/.5)] backdrop-blur-md animate-flottement" style={{ animationDelay: `${-i * 3}s` }}>
                   <p className="flex items-center justify-between gap-2 text-[11px] text-white/60">
-                    {t}
+                    {t(x.titre)}
                     <span className="size-1.5 rounded-full bg-[#34d399] shadow-[0_0_8px_#34d399]" />
                   </p>
-                  <p className="mt-0.5 text-xl font-semibold montant">{v}</p>
-                  <p className="text-[11px] text-white/40 chiffre">{e}</p>
+                  <p className="mt-0.5 text-xl font-semibold montant">{montant(x.resultat)}</p>
+                  <p className="text-[11px] text-white/40 chiffre">{t(x.detail, { montant: montant(x.base) })}</p>
                 </div>
               ))}
             </div>
 
             <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 lg:bottom-14 lg:left-12">
               <h1 key={inscription ? 'i' : 'c'} className="text-5xl font-bold animate-montee sm:text-6xl lg:text-7xl" style={{ animationDelay: '250ms' }}>
-                {inscription ? 'Bienvenue' : 'Bon retour'}
+                {t(inscription ? 'cx.bienvenue' : 'cx.bonRetour')}
                 <span className="text-[#ff4fd8]">.</span>
               </h1>
               <p className="mt-3 max-w-md text-[14px] leading-relaxed text-white/70 animate-montee sm:text-[15px]" style={{ animationDelay: '380ms' }}>
-                Le comptable ne calcule plus : il vérifie et il valide. Chaque résultat affiche sa formule, ses étapes et sa référence légale.
+                {t('cx.accroche')}
               </p>
               {peutBasculer && (
                 <p className="mt-4 hidden text-[13px] text-white/60 animate-montee lg:block" style={{ animationDelay: '480ms' }}>
-                  {inscription ? 'Déjà un compte ?' : 'Pas encore de compte ?'}{' '}
+                  {t(inscription ? 'cx.dejaCompte' : 'cx.pasCompte')}{' '}
                   <button type="button" onClick={basculer} className="font-semibold text-white underline decoration-[#ff4fd8] decoration-2 underline-offset-4 hover:text-[#ffb3ef]">
-                    {inscription ? 'Se connecter' : 'Créer un compte'}
+                    {t(inscription ? 'cx.seConnecter' : 'cx.creerCompte')}
                   </button>
                 </p>
               )}
@@ -501,9 +541,9 @@ export function PageConnexion() {
 
             {peutBasculer && (
               <p className="mt-6 text-center text-[13px] text-white/55 lg:hidden">
-                {inscription ? 'Déjà un compte ?' : 'Pas encore de compte ?'}{' '}
+                {t(inscription ? 'cx.dejaCompte' : 'cx.pasCompte')}{' '}
                 <button type="button" onClick={basculer} className="font-semibold text-[#f0abfc] hover:underline">
-                  {inscription ? 'Se connecter' : 'Créer un compte'}
+                  {t(inscription ? 'cx.seConnecter' : 'cx.creerCompte')}
                 </button>
               </p>
             )}
@@ -512,7 +552,7 @@ export function PageConnexion() {
       </div>
 
       <p className="relative mt-6 text-[12px] text-white/70">
-        © {new Date().getFullYear()} {MARQUE.societe} · Tous droits réservés
+        {t('commun.copyright', { annee: new Date().getFullYear(), societe: MARQUE.societe })}
       </p>
     </div>
   );

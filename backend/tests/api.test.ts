@@ -88,6 +88,30 @@ describe('Moteur de calcul', () => {
   });
 });
 
+describe('Préférences de langue et de monnaie', () => {
+  test('valeurs par défaut, modification et contrôle', async () => {
+    expect((await comptable.get('/api/auth/moi')).body.utilisateur).toMatchObject({ langue: 'fr', devise: 'EUR' });
+    const r = await comptable.patch('/api/auth/preferences').send({ langue: 'en', devise: 'XOF' });
+    expect(r.status).toBe(200);
+    expect((await comptable.get('/api/auth/moi')).body.utilisateur).toMatchObject({ langue: 'en', devise: 'XOF' });
+    expect((await comptable.patch('/api/auth/preferences').send({ devise: 'BTC' })).status).toBe(422);
+    expect((await comptable.patch('/api/auth/preferences').send({ langue: 'de' })).status).toBe(422);
+    expect((await comptable.patch('/api/auth/preferences').send({})).status).toBe(422);
+    await comptable.patch('/api/auth/preferences').send({ langue: 'fr', devise: 'EUR' });
+  });
+  test('la monnaie est archivée avec le calcul et distingue l’empreinte', async () => {
+    const entrees = { connu: 'ht', montant: '1000', taux: '18' };
+    const eur = await comptable.post('/api/calc/tva/ht-ttc').send({ entrees });
+    const xof = await comptable.post('/api/calc/tva/ht-ttc').send({ entrees, devise: 'XOF', enregistrer: true });
+    expect(xof.body.resultat.resultats).toEqual(eur.body.resultat.resultats); // aucune conversion
+    expect(xof.body.empreinte).not.toBe(eur.body.empreinte);
+    const c = (await comptable.get(`/api/historique/${xof.body.calculId}`)).body.calcul;
+    expect(c).toMatchObject({ devise: 'XOF', principalValeur: '180.00', principalUnite: 'EUR' });
+    await comptable.delete(`/api/historique/${xof.body.calculId}`);
+    expect((await comptable.post('/api/calc/tva/ht-ttc').send({ entrees, devise: 'BTC' })).status).toBe(422);
+  });
+});
+
 describe('Historique des calculs', () => {
   let id = '';
   test('enregistrement dans le journal', async () => {

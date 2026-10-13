@@ -147,7 +147,7 @@ backend/src/
 1. authentification (cookie httpOnly `compta_session` ou `Authorization: Bearer`) ;
 2. limitation à 600 calculs par minute ;
 3. exécution par `executer()` du moteur ;
-4. empreinte SHA-256 du JSON canonique (clés triées) de `{ formule, moteur, version, entrees normalisées, resultats }` : deux calculs identiques ont la même empreinte, sur n'importe quelle instance ;
+4. empreinte SHA-256 du JSON canonique (clés triées) de `{ formule, moteur, version, entrees normalisées, resultats }`, plus la monnaie si elle n'est pas l'euro : deux calculs identiques ont la même empreinte, sur n'importe quelle instance ;
 5. si `enregistrer` : insertion dans `calculs` avec le résultat complet ; un `LECTEUR` ne peut pas enregistrer ; `valider` fige le calcul.
 
 Les erreurs sont uniformes : `{ erreur: { code, message, details? } }`. `ErreurEntree` et `ErreurCalcul` → 422, violation d'unicité → 409, ressource absente → 404.
@@ -156,8 +156,8 @@ Les erreurs sont uniformes : `{ erreur: { code, message, details? } }`. `ErreurE
 
 | Table | Contenu |
 |---|---|
-| `utilisateurs` | e-mail, nom, mot de passe (bcrypt), rôle `ADMIN` / `COMPTABLE` / `LECTEUR` |
-| `calculs` | journal : formule et version, libellé, entrées, résultat complet (JSON), valeur principale, empreinte, statut `BROUILLON` / `VALIDE`, nombre d'erreurs et d'avertissements |
+| `utilisateurs` | e-mail, nom, mot de passe (bcrypt), rôle `ADMIN` / `COMPTABLE` / `LECTEUR`, langue et monnaie préférées |
+| `calculs` | journal : formule et version, libellé, entrées, résultat complet (JSON), résultat principal (libellé, valeur, unité), monnaie de saisie, empreinte, statut `BROUILLON` / `VALIDE`, nombre d'erreurs et d'avertissements |
 | `versions_baremes` | historique de chaque version (unique par code et date de début), statut, origine `BIBLIOTHEQUE` ou `SAISIE`, auteur |
 | `journal_audit` | inscriptions, validations de calculs depuis l'historique, saisies de barèmes |
 
@@ -198,6 +198,11 @@ frontend/src/
 - **Calcul en direct** : chaque modification relance le calcul après 220 ms (TanStack Query, résultat précédent conservé pendant le recalcul). Il n'existe pas de bouton « Calculer ».
 - **Résultats** : cartes des résultats principaux, puis onglets *Résultats*, *Formules et étapes*, *Tableaux* (graphique et export CSV), *Écritures*, *Contrôles*, *Références*.
 - **Thème** : jetons HSL dans `index.css`, classe `dark` sur `<html>`, choix mémorisé.
+- **Langue et monnaie** (`lib/i18n`, `lib/devises.ts`, `lib/format.ts`) :
+  - les textes de l'interface sont dans `lib/i18n/dictionnaires.ts` ; le français fait référence et TypeScript impose que l'anglais définisse les mêmes clés. `useT()` donne `t(cle, variables)`, avec pluriels selon la langue ;
+  - `PreferencesProvider` lit les préférences du compte (session) ou, avant connexion, celles du navigateur, et configure le module de format avant le rendu ;
+  - la monnaie ne convertit rien : symbole, position et décimales viennent d'`Intl` ; l'arrondi d'affichage est fait sur la chaîne décimale (jamais en flottant). Le symbole « € » des textes du moteur (étapes, contrôles, libellés) est remplacé par celui de la monnaie choisie ;
+  - les noms et descriptions des 13 moteurs sont traduits ; le contenu des 163 formules reste en français.
 
 ## Tests et qualité
 

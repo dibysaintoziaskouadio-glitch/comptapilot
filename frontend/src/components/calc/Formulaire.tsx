@@ -7,6 +7,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { Champ } from '@/lib/types';
 import { Champ as Saisie, Interrupteur } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { texteMoteur } from '@/lib/format';
 
 export type Valeurs = Record<string, unknown>;
 export type ErreursChamps = Record<string, string>;
@@ -39,20 +41,23 @@ export function estVisible(c: Champ, v: Valeurs): boolean {
 }
 
 function Libelle({ champ, erreur }: { champ: Champ; erreur?: string }) {
+  const { t } = useT();
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
       <label htmlFor={`champ-${champ.nom}`} className="text-[13px] font-medium text-texte">
-        {champ.libelle}
-        {champ.optionnel && <span className="ml-1 font-normal text-attenue">(facultatif)</span>}
+        {texteMoteur(champ.libelle)}
+        {champ.optionnel && <span className="ml-1 font-normal text-attenue">{t('form.facultatif')}</span>}
       </label>
       {erreur && <span className="text-[11.5px] font-medium text-danger">{erreur}</span>}
     </div>
   );
 }
 
-const suffixe = (c: Champ) => (c.type === 'taux' ? '%' : c.type === 'montant' ? (c.unite ?? '€') || undefined : c.unite);
+// Suffixe des montants : symbole de la monnaie choisie (le moteur déclare « € »).
+const suffixe = (c: Champ) => (c.type === 'taux' ? '%' : c.type === 'montant' ? texteMoteur(c.unite ?? '€') || undefined : c.unite ? texteMoteur(c.unite) : undefined);
 
 function Simple({ champ, valeur, onChange, erreur, compact, large }: { champ: Champ; valeur: unknown; onChange: (v: unknown) => void; erreur?: string; compact?: boolean; large?: boolean }) {
+  const { t } = useT();
   const id = compact ? undefined : `champ-${champ.nom}`;
   switch (champ.type) {
     case 'booleen':
@@ -71,7 +76,7 @@ function Simple({ champ, valeur, onChange, erreur, compact, large }: { champ: Ch
                 onClick={() => onChange(o.valeur)}
                 className={cn('rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition-all', valeur === o.valeur ? 'bg-surface text-texte shadow-carte' : 'text-attenue hover:text-texte')}
               >
-                {o.libelle}
+                {texteMoteur(o.libelle)}
               </button>
             ))}
           </div>
@@ -85,7 +90,7 @@ function Simple({ champ, valeur, onChange, erreur, compact, large }: { champ: Ch
         >
           {opts.map((o) => (
             <option key={o.valeur} value={o.valeur}>
-              {o.libelle}
+              {texteMoteur(o.libelle)}
             </option>
           ))}
         </select>
@@ -112,7 +117,7 @@ function Simple({ champ, valeur, onChange, erreur, compact, large }: { champ: Ch
           id={id}
           value={Array.isArray(valeur) ? valeur.join(' ; ') : String(valeur ?? '')}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Valeurs séparées par ;"
+          placeholder={t('form.liste')}
           invalide={!!erreur}
           className={cn('font-mono chiffre', compact ? 'h-9 text-[12.5px]' : 'text-[13px]')}
         />
@@ -133,6 +138,7 @@ function Simple({ champ, valeur, onChange, erreur, compact, large }: { champ: Ch
 }
 
 function Table({ champ, valeur, onChange, erreurs }: { champ: Champ; valeur: unknown; onChange: (v: unknown) => void; erreurs: ErreursChamps }) {
+  const { t } = useT();
   const lignes = (Array.isArray(valeur) ? valeur : []) as Record<string, unknown>[];
   const cols = champ.colonnes ?? [];
   const maj = (i: number, nom: string, v: unknown) => onChange(lignes.map((l, k) => (k === i ? { ...l, [nom]: v } : l)));
@@ -144,7 +150,7 @@ function Table({ champ, valeur, onChange, erreurs }: { champ: Champ; valeur: unk
             <tr>
               {cols.map((c) => (
                 <th key={c.nom} className="px-2 py-2 font-medium">
-                  {c.libelle}
+                  {texteMoteur(c.libelle)}
                 </th>
               ))}
               <th className="w-9" />
@@ -168,7 +174,7 @@ function Table({ champ, valeur, onChange, erreurs }: { champ: Champ; valeur: unk
                   );
                 })}
                 <td className="pr-1.5">
-                  <button type="button" onClick={() => onChange(lignes.filter((_, k) => k !== i))} className="rounded-lg p-1.5 text-attenue hover:bg-danger/10 hover:text-danger" aria-label="Supprimer la ligne">
+                  <button type="button" onClick={() => onChange(lignes.filter((_, k) => k !== i))} className="rounded-lg p-1.5 text-attenue hover:bg-danger/10 hover:text-danger" aria-label={t('form.supprimerLigne')}>
                     <Trash2 className="size-3.5" />
                   </button>
                 </td>
@@ -178,13 +184,14 @@ function Table({ champ, valeur, onChange, erreurs }: { champ: Champ; valeur: unk
         </table>
       </div>
       <button type="button" onClick={() => onChange([...lignes, ligneVide(champ)])} className="flex w-full items-center justify-center gap-1.5 border-t border-dashed border-bordure py-2 text-[12.5px] font-medium text-accent-texte hover:bg-accent-doux/50">
-        <Plus className="size-3.5" /> Ajouter une ligne
+        <Plus className="size-3.5" /> {t('form.ajouterLigne')}
       </button>
     </div>
   );
 }
 
 export function Formulaire({ champs, valeurs, onChange, erreurs }: { champs: Champ[]; valeurs: Valeurs; onChange: (v: Valeurs) => void; erreurs: ErreursChamps }) {
+  const { langue } = useT();
   const groupes = useMemo(() => {
     const g: { nom: string; champs: Champ[] }[] = [];
     for (const c of champs) {
@@ -211,7 +218,7 @@ export function Formulaire({ champs, valeurs, onChange, erreurs }: { champs: Cha
                 if (c.type === 'booleen')
                   return (
                     <div key={c.nom} className="flex items-center justify-between gap-3 rounded-xl border border-bordure bg-surface-2/50 px-3 py-2.5 sm:col-span-2">
-                      <span className="text-[13px] font-medium">{c.libelle}</span>
+                      <span className="text-[13px] font-medium">{texteMoteur(c.libelle)}</span>
                       <Interrupteur actif={!!valeurs[c.nom]} onChange={(v) => maj(c.nom, v)} libelle={c.libelle} />
                     </div>
                   );
@@ -232,13 +239,13 @@ export function Formulaire({ champs, valeurs, onChange, erreurs }: { champs: Cha
                             onClick={() => maj(c.nom, s)}
                             className={cn('rounded-full border px-2 py-0.5 text-[11.5px] chiffre transition-colors', String(valeurs[c.nom]) === s ? 'border-accent bg-accent-doux text-accent-texte' : 'border-bordure text-attenue hover:border-accent/50')}
                           >
-                            {s.replace('.', ',')}
+                            {langue === 'fr' ? s.replace('.', ',') : s}
                             {c.type === 'taux' ? ' %' : ''}
                           </button>
                         ))}
                       </div>
                     )}
-                    {c.aide && <p className="mt-1.5 text-[11.5px] leading-snug text-attenue">{c.aide}</p>}
+                    {c.aide && <p className="mt-1.5 text-[11.5px] leading-snug text-attenue">{texteMoteur(c.aide)}</p>}
                   </div>
                 );
               })}

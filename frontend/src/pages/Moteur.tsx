@@ -4,11 +4,13 @@ import { ArrowRight, Search, XCircle } from 'lucide-react';
 import { useCatalogue } from '@/hooks/useDonnees';
 import { Badge, Carte, Champ, Squelette, Vide } from '@/components/ui';
 import { apparence, pastille } from '@/lib/moteurs';
+import { useT } from '@/lib/i18n';
 
 export function PageMoteur() {
   const { moteur = '' } = useParams();
   const { moteurs, isLoading } = useCatalogue();
   const [q, setQ] = useState('');
+  const { t, nomMoteur, descriptionMoteur } = useT();
   const m = moteurs.find((x) => x.code === moteur);
   const groupes = useMemo(() => {
     if (!m) return [];
@@ -17,7 +19,7 @@ export function PageMoteur() {
     return [...new Set(fs.map((f) => f.categorie))].map((c) => ({ categorie: c, formules: fs.filter((f) => f.categorie === c) }));
   }, [m, q]);
   if (isLoading) return <Squelette className="h-96" />;
-  if (!m) return <Vide icone={<XCircle />} titre="Moteur introuvable" />;
+  if (!m) return <Vide icone={<XCircle />} titre={t('moteur.introuvable')} />;
   const a = apparence(m.code);
   return (
     <div className="space-y-8 animate-apparition">
@@ -28,13 +30,13 @@ export function PageMoteur() {
           </span>
           <div>
             <p className="font-mono text-[12px] text-attenue">moteurs/src/{m.dossier}</p>
-            <h1 className="text-[28px] font-bold tracking-tight">{m.nom}</h1>
-            <p className="text-[14px] text-attenue">{m.description}</p>
+            <h1 className="text-[28px] font-bold tracking-tight">{nomMoteur(m)}</h1>
+            <p className="text-[14px] text-attenue">{descriptionMoteur(m)}</p>
           </div>
         </div>
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-attenue" />
-          <Champ value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Filtrer les ${m.formules.length} formules`} className="pl-9" />
+          <Champ value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('moteur.filtrer', { n: m.formules.length })} className="pl-9" />
         </div>
       </div>
       {groupes.map((g) => (
@@ -51,9 +53,9 @@ export function PageMoteur() {
                   <p className="mt-1.5 line-clamp-2 text-[13px] text-attenue">{f.description}</p>
                   <p className="mt-3 line-clamp-2 rounded-lg bg-surface-2 px-2.5 py-1.5 font-mono text-[11px] text-attenue">{f.expression}</p>
                   <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                    <Badge>{f.champs.length} entrées</Badge>
-                    <Badge>{f.references.length} réf.</Badge>
-                    {f.baremes.length > 0 && <Badge ton="accent">barèmes</Badge>}
+                    <Badge>{t('moteur.entrees', { n: f.champs.length })}</Badge>
+                    <Badge>{t('moteur.refs', { n: f.references.length })}</Badge>
+                    {f.baremes.length > 0 && <Badge ton="accent">{t('moteur.baremes')}</Badge>}
                   </div>
                 </Carte>
               </Link>
@@ -61,7 +63,7 @@ export function PageMoteur() {
           </div>
         </section>
       ))}
-      {groupes.length === 0 && <Vide icone={<Search />} titre="Aucune formule" texte={`Aucun résultat pour « ${q} ».`} />}
+      {groupes.length === 0 && <Vide icone={<Search />} titre={t('moteur.aucune')} texte={t('moteur.aucunResultat', { q })} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, BadgeCheck, ChevronRight, FlaskConical, Hash, Loader2, RotateCcw, Save, Sparkles, XCircle, Zap } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, ChevronRight, Coins, FlaskConical, Hash, Loader2, RotateCcw, Save, Sparkles, XCircle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, ErreurApi } from '@/lib/api';
 import type { ResultatCalcul } from '@/lib/types';
@@ -12,6 +12,9 @@ import { Formulaire, valeursInitiales, type ErreursChamps, type Valeurs } from '
 import { DetailResultats, SyntheseResultats } from '@/components/calc/Resultats';
 import { apparence, pastille } from '@/lib/moteurs';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { duree, texteMoteur } from '@/lib/format';
+import { DEVISES } from '@/lib/devises';
 
 interface Reponse {
   resultat: ResultatCalcul;
@@ -33,6 +36,7 @@ export function PageFormule() {
   const { moteurs, isLoading } = useCatalogue();
   const { data: session } = useSession();
   const qc = useQueryClient();
+  const { t, langue, devise, changer, nomMoteur, erreur: messageErreur } = useT();
   const m = moteurs.find((x) => x.code === moteur);
   const f = m?.formules.find((x) => x.id === formule);
 
@@ -40,7 +44,7 @@ export function PageFormule() {
   const [libelle, setLibelle] = useState('');
   const [pret, setPret] = useState(false);
 
-  const enregistre = useQuery({ queryKey: ['historique', calculId], queryFn: () => api<{ calcul: { entrees: Record<string, unknown>; libelle: string | null } }>(`/historique/${calculId}`), enabled: !!calculId });
+  const enregistre = useQuery({ queryKey: ['historique', calculId], queryFn: () => api<{ calcul: { entrees: Record<string, unknown>; libelle: string | null; devise: string } }>(`/historique/${calculId}`), enabled: !!calculId });
 
   useEffect(() => {
     if (!f) return;
@@ -58,8 +62,8 @@ export function PageFormule() {
 
   const debounce = useDebounce(valeurs, 220);
   const calcul = useQuery({
-    queryKey: ['calcul', moteur, formule, debounce],
-    queryFn: () => api<Reponse>(`/calc/${moteur}/${formule}`, { method: 'POST', json: { entrees: debounce } }),
+    queryKey: ['calcul', moteur, formule, debounce, devise],
+    queryFn: () => api<Reponse>(`/calc/${moteur}/${formule}`, { method: 'POST', json: { entrees: debounce, devise } }),
     enabled: pret && !!f,
     placeholderData: keepPreviousData,
     retry: false,
@@ -71,22 +75,26 @@ export function PageFormule() {
   const r = !erreur ? calcul.data?.resultat : undefined;
 
   const sauver = useMutation({
-    mutationFn: (validerCalcul: boolean) => api<Reponse>(`/calc/${moteur}/${formule}`, { method: 'POST', json: { entrees: valeurs, enregistrer: true, valider: validerCalcul, libelle: libelle || undefined } }),
+    mutationFn: (validerCalcul: boolean) => api<Reponse>(`/calc/${moteur}/${formule}`, { method: 'POST', json: { entrees: valeurs, enregistrer: true, valider: validerCalcul, libelle: libelle || undefined, devise } }),
     onSuccess: (x, validerCalcul) => {
       qc.invalidateQueries({ queryKey: ['historique'] });
-      toast.success(validerCalcul ? 'Calcul validé et archivé' : 'Brouillon enregistré', { description: `Empreinte ${x.empreinte.slice(0, 16)}…` });
+      toast.success(t(validerCalcul ? 'formule.toastValide' : 'formule.toastBrouillon'), { description: t('formule.empreinte', { e: x.empreinte.slice(0, 16) }) });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Échec de l’enregistrement'),
+    onError: (e) => toast.error(e instanceof ErreurApi ? messageErreur(e) : t('formule.echec')),
   });
 
   if (isLoading) return <Squelette className="h-96" />;
-  if (!m || !f) return <Vide icone={<XCircle />} titre="Formule introuvable" action={<Link to="/" className="text-sm text-accent-texte underline">Retour au tableau de bord</Link>} />;
+  if (!m || !f) return <Vide icone={<XCircle />} titre={t('formule.introuvable')} action={<Link to="/" className="text-sm text-accent-texte underline">{t('formule.retour')}</Link>} />;
 
   const a = apparence(m.code);
   // Une balance ou un tableau à plusieurs colonnes a besoin de place : la colonne de saisie s'élargit.
   const saisieLarge = f.champs.some((c) => c.type === 'table' && (c.colonnes?.length ?? 0) >= 4);
   const nbErreurs = r?.controles.filter((c) => c.niveau === 'erreur').length ?? 0;
   const nbAlertes = r?.controles.filter((c) => c.niveau === 'avertissement').length ?? 0;
+  // Barèmes porteurs de montants légaux en euros (les taux de TVA seuls n'en contiennent pas).
+  const baremesEnEuros = devise !== 'EUR' && f.baremes.some((b) => b !== 'tva.taux');
+  const deviseArchive = calculId ? enregistre.data?.calcul.devise : undefined;
+  const nomDevise = (code: string) => DEVISES.find((x) => x.code === code)?.nom[langue] ?? code;
 
   return (
     <div className="space-y-6 animate-apparition">
@@ -97,7 +105,7 @@ export function PageFormule() {
               <span className="grid size-5 place-items-center rounded-md" style={pastille(a.teinte)}>
                 <a.icone className="size-3" />
               </span>
-              {m.nom}
+              {nomMoteur(m)}
             </Link>
             <ChevronRight className="size-3.5" />
             <span>{f.categorie}</span>
@@ -110,8 +118,8 @@ export function PageFormule() {
               {m.code}/{f.id}
             </Badge>
             <Badge>v{f.version}</Badge>
-            <Badge>{f.references.length} référence{f.references.length > 1 ? 's' : ''} légale{f.references.length > 1 ? 's' : ''}</Badge>
-            {f.baremes.length > 0 && <Badge>{f.baremes.length} barème{f.baremes.length > 1 ? 's' : ''} versionné{f.baremes.length > 1 ? 's' : ''}</Badge>}
+            <Badge>{t('formule.references', { n: f.references.length })}</Badge>
+            {f.baremes.length > 0 && <Badge>{t('formule.baremes', { n: f.baremes.length })}</Badge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -124,10 +132,10 @@ export function PageFormule() {
               }}
               defaultValue=""
               className="h-10 rounded-xl border border-bordure bg-surface px-3 text-sm"
-              aria-label="Charger un exemple"
+              aria-label={t('formule.chargerExemple')}
             >
               <option value="" disabled>
-                Exemples vérifiés…
+                {t('formule.exemples')}
               </option>
               {f.exemples.map((ex, i) => (
                 <option key={i} value={i}>
@@ -137,23 +145,39 @@ export function PageFormule() {
             </select>
           )}
           <Bouton onClick={() => setValeurs(valeursInitiales(f.champs))}>
-            <RotateCcw className="size-4" /> Réinitialiser
+            <RotateCcw className="size-4" /> {t('formule.reinitialiser')}
           </Bouton>
         </div>
       </div>
 
+      {deviseArchive && deviseArchive !== devise && (
+        <Carte className="flex flex-wrap items-center gap-3 border-info/30 bg-info/5 p-3.5 text-[13px]">
+          <Coins className="size-4 shrink-0 text-info" />
+          <p className="min-w-0 flex-1">{t('formule.deviseArchive', { archive: nomDevise(deviseArchive), courante: nomDevise(devise) })}</p>
+          <Bouton taille="sm" onClick={() => changer({ devise: deviseArchive })}>
+            {t('formule.afficherEn', { archive: deviseArchive })}
+          </Bouton>
+        </Carte>
+      )}
+      {baremesEnEuros && (
+        <Carte className="flex items-start gap-3 border-alerte/30 bg-alerte/5 p-3.5 text-[13px]">
+          <Coins className="mt-0.5 size-4 shrink-0 text-alerte" />
+          <p>{t('formule.baremesEuros', { devise: nomDevise(devise) })}</p>
+        </Carte>
+      )}
+
       <Carte className="flex items-start gap-3 bg-gradient-to-r from-accent-doux/70 to-transparent p-4">
         <Sparkles className="mt-0.5 size-4 shrink-0 text-accent-texte" />
-        <p className="min-w-0 break-words font-mono text-[12.5px] leading-relaxed text-texte">{f.expression}</p>
+        <p className="min-w-0 break-words font-mono text-[12.5px] leading-relaxed text-texte">{texteMoteur(f.expression)}</p>
       </Carte>
 
       <div className={cn('grid items-start gap-6', saisieLarge ? 'xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]' : 'xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]')}>
         <Carte className="p-5 sm:p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-semibold">
-              <FlaskConical className="size-4 text-accent-texte" /> Données d’entrée
+              <FlaskConical className="size-4 text-accent-texte" /> {t('formule.entrees')}
             </h2>
-            <span className="text-[12px] text-attenue">Chaque modification recalcule tout</span>
+            <span className="text-[12px] text-attenue">{t('formule.recalcule')}</span>
           </div>
           {pret ? <Formulaire champs={f.champs} valeurs={valeurs} onChange={setValeurs} erreurs={erreursChamps} /> : <Squelette className="h-64" />}
         </Carte>
@@ -161,16 +185,16 @@ export function PageFormule() {
         <div className="space-y-4 xl:sticky xl:top-24">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 font-semibold">
-              <Zap className="size-4 text-accent-texte" /> Résultats
+              <Zap className="size-4 text-accent-texte" /> {t('formule.resultats')}
             </h2>
             <div className="flex items-center gap-2 text-[12px] text-attenue">
               {enCours ? (
                 <span className="flex items-center gap-1.5">
-                  <Loader2 className="size-3.5 animate-spin" /> Calcul…
+                  <Loader2 className="size-3.5 animate-spin" /> {t('formule.calcul')}
                 </span>
               ) : r ? (
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-succes shadow-[0_0_0_3px_hsl(var(--succes)/.2)]" /> Calculé en {r.dureeMs.toLocaleString('fr-FR')} ms
+                  <span className="size-2 rounded-full bg-succes shadow-[0_0_0_3px_hsl(var(--succes)/.2)]" /> {t('formule.calculeEn', { ms: duree(r.dureeMs) })}
                 </span>
               ) : null}
             </div>
@@ -200,22 +224,22 @@ export function PageFormule() {
               {(nbErreurs > 0 || nbAlertes > 0) && (
                 <div className={cn('flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px]', nbErreurs ? 'border-danger/30 bg-danger/5 text-danger' : 'border-alerte/30 bg-alerte/5 text-alerte')}>
                   <AlertTriangle className="size-4" />
-                  {nbErreurs > 0 && `${nbErreurs} erreur${nbErreurs > 1 ? 's' : ''}`}
+                  {nbErreurs > 0 && t('formule.erreurs', { n: nbErreurs })}
                   {nbErreurs > 0 && nbAlertes > 0 && ' · '}
-                  {nbAlertes > 0 && `${nbAlertes} avertissement${nbAlertes > 1 ? 's' : ''}`}
-                  <span className="text-attenue">— voir l’onglet Contrôles</span>
+                  {nbAlertes > 0 && t('formule.avertissements', { n: nbAlertes })}
+                  <span className="text-attenue">{t('formule.voirControles')}</span>
                 </div>
               )}
               <DetailResultats r={r} />
               {session?.utilisateur.role !== 'LECTEUR' && (
                 <Carte className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                  <Saisie value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Libellé (dossier, client, période…)" className="sm:flex-1" />
+                  <Saisie value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder={t('formule.libelle')} className="sm:flex-1" />
                   <div className="flex gap-2">
                     <Bouton onClick={() => sauver.mutate(false)} chargement={sauver.isPending && sauver.variables === false} disabled={!!erreur}>
-                      <Save className="size-4" /> Brouillon
+                      <Save className="size-4" /> {t('formule.brouillon')}
                     </Bouton>
-                    <Bouton variante="primaire" onClick={() => sauver.mutate(true)} chargement={sauver.isPending && sauver.variables === true} disabled={!!erreur || nbErreurs > 0} title={nbErreurs ? 'Corriger les erreurs avant validation' : undefined}>
-                      <BadgeCheck className="size-4" /> Vérifier et valider
+                    <Bouton variante="primaire" onClick={() => sauver.mutate(true)} chargement={sauver.isPending && sauver.variables === true} disabled={!!erreur || nbErreurs > 0} title={nbErreurs ? t('formule.corriger') : undefined}>
+                      <BadgeCheck className="size-4" /> {t('formule.valider')}
                     </Bouton>
                   </div>
                 </Carte>

@@ -10,6 +10,7 @@ import { Badge, Carte, Squelette } from '@/components/ui';
 import { apparence, pastille } from '@/lib/moteurs';
 import { dateCourte, dateHeure } from '@/lib/format';
 import { OndeFluide } from '@/components/OndeFluide';
+import { useT } from '@/lib/i18n';
 
 const RACCOURCIS: [string, string][] = [
   ['tva', 'ht-ttc'],
@@ -39,12 +40,13 @@ export function PageTableauDeBord() {
   const { moteurs, formules, isLoading } = useCatalogue();
   const { data: session } = useSession();
   const stats = useStatistiques();
+  const { t, langue, nomMoteur, descriptionMoteur } = useT();
   const recents = useQuery({ queryKey: ['historique', 'recents'], queryFn: () => api<{ calculs: CalculResume[] }>('/historique?parPage=6') });
   const baremes = useQuery({ queryKey: ['baremes'], queryFn: () => api<{ baremes: { obsolete: boolean; versions: { statut: string }[] }[] }>('/baremes') });
   const aVerifier = baremes.data?.baremes.filter((b) => b.obsolete || b.versions.some((v) => v.statut === 'a_verifier')).length ?? 0;
   const heure = new Date().getHours();
   // Référence stable : un nouveau tableau à chaque rendu relancerait l'animation du graphique.
-  const activite = useMemo(() => stats.data?.parJour.map((x) => ({ ...x, jour: dateCourte(x.jour) })), [stats.data]);
+  const activite = useMemo(() => stats.data?.parJour.map((x) => ({ ...x, jour: dateCourte(x.jour) })), [stats.data, langue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-8 animate-apparition">
@@ -55,10 +57,10 @@ export function PageTableauDeBord() {
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 text-[13px] font-medium text-white/80">
-              <Sparkles className="size-4" /> {heure < 18 ? 'Bonjour' : 'Bonsoir'} {session?.utilisateur.nom.split(' ')[0]}
+              <Sparkles className="size-4" /> {t(heure < 18 ? 'accueil.bonjour' : 'accueil.bonsoir')} {session?.utilisateur.nom.split(' ')[0]}
             </p>
-            <h1 className="mt-2 text-[28px] font-bold leading-tight tracking-tight sm:text-[34px]">Que voulez-vous faire calculer aujourd’hui ?</h1>
-            <p className="mt-2 text-white/80">{formules.length} formules prêtes, réparties en {moteurs.length} moteurs. Saisissez, le moteur calcule, contrôle et documente.</p>
+            <h1 className="mt-2 text-[28px] font-bold leading-tight tracking-tight sm:text-[34px]">{t('accueil.titre')}</h1>
+            <p className="mt-2 text-white/80">{t('accueil.sousTitre', { f: formules.length, m: moteurs.length })}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {RACCOURCIS.slice(0, 4).map(([m, f]) => {
@@ -74,17 +76,17 @@ export function PageTableauDeBord() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi icone={<Calculator className="size-4" />} libelle="Calculs enregistrés" valeur={stats.data?.total ?? '—'} detail="dans votre journal" />
-        <Kpi icone={<BadgeCheck className="size-4" />} libelle="Calculs validés" valeur={stats.data?.valides ?? '—'} detail="archivés, non modifiables" />
-        <Kpi icone={<ShieldAlert className="size-4" />} libelle="Avec alertes" valeur={stats.data?.alertes ?? '—'} detail="erreurs ou avertissements" />
-        <Kpi icone={<BookMarked className="size-4" />} libelle="Barèmes à surveiller" valeur={baremes.data ? aVerifier : '—'} detail="à confirmer ou à mettre à jour" />
+        <Kpi icone={<Calculator className="size-4" />} libelle={t('accueil.kpiEnregistres')} valeur={stats.data?.total ?? '—'} detail={t('accueil.kpiEnregistresDetail')} />
+        <Kpi icone={<BadgeCheck className="size-4" />} libelle={t('accueil.kpiValides')} valeur={stats.data?.valides ?? '—'} detail={t('accueil.kpiValidesDetail')} />
+        <Kpi icone={<ShieldAlert className="size-4" />} libelle={t('accueil.kpiAlertes')} valeur={stats.data?.alertes ?? '—'} detail={t('accueil.kpiAlertesDetail')} />
+        <Kpi icone={<BookMarked className="size-4" />} libelle={t('accueil.kpiBaremes')} valeur={baremes.data ? aVerifier : '—'} detail={t('accueil.kpiBaremesDetail')} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Carte className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Activité des 14 derniers jours</h2>
-            <Badge ton="accent">{stats.data?.parJour.reduce((s, x) => s + x.n, 0) ?? 0} calculs</Badge>
+            <h2 className="font-semibold">{t('accueil.activite')}</h2>
+            <Badge ton="accent">{t('accueil.calculs', { n: stats.data?.parJour.reduce((s, x) => s + x.n, 0) ?? 0 })}</Badge>
           </div>
           <div className="mt-4 h-48">
             {stats.data ? (
@@ -97,7 +99,7 @@ export function PageTableauDeBord() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="jour" stroke="hsl(var(--attenue))" fontSize={11} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={8} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--surface))', border: '1px solid hsl(var(--bordure))', borderRadius: 12, fontSize: 12 }} formatter={(v: number) => [v, 'Calculs']} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--surface))', border: '1px solid hsl(var(--bordure))', borderRadius: 12, fontSize: 12 }} formatter={(v: number) => [v, t('accueil.infobulle')]} />
                   <Area type="monotone" dataKey="n" stroke="hsl(var(--accent))" strokeWidth={2.4} fill="url(#degrade)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -108,13 +110,13 @@ export function PageTableauDeBord() {
         </Carte>
         <Carte className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Derniers calculs</h2>
+            <h2 className="font-semibold">{t('accueil.derniers')}</h2>
             <Link to="/historique" className="text-[12.5px] font-medium text-accent-texte hover:underline">
-              Tout voir
+              {t('accueil.toutVoir')}
             </Link>
           </div>
           <ul className="mt-3 space-y-1">
-            {recents.data?.calculs.length === 0 && <li className="py-8 text-center text-sm text-attenue">Aucun calcul enregistré pour l’instant.</li>}
+            {recents.data?.calculs.length === 0 && <li className="py-8 text-center text-sm text-attenue">{t('accueil.aucun')}</li>}
             {recents.data?.calculs.map((c) => {
               const a = apparence(c.moteur);
               return (
@@ -139,8 +141,8 @@ export function PageTableauDeBord() {
       <section>
         <div className="mb-4 flex items-end justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Les moteurs de calcul</h2>
-            <p className="text-[13px] text-attenue">Autonomes, testés, documentés avec leurs références légales.</p>
+            <h2 className="text-lg font-semibold">{t('accueil.moteurs')}</h2>
+            <p className="text-[13px] text-attenue">{t('accueil.moteursSous')}</p>
           </div>
         </div>
         {isLoading ? (
@@ -159,13 +161,13 @@ export function PageTableauDeBord() {
                     </span>
                     <ArrowUpRight className="size-4 text-attenue transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-texte" />
                   </div>
-                  <h3 className="relative mt-4 font-semibold">{m.nom}</h3>
-                  <p className="relative mt-1 line-clamp-2 text-[13px] text-attenue">{m.description}</p>
+                  <h3 className="relative mt-4 font-semibold">{nomMoteur(m)}</h3>
+                  <p className="relative mt-1 line-clamp-2 text-[13px] text-attenue">{descriptionMoteur(m)}</p>
                   <div className="relative mt-4 flex items-center gap-2 text-[12px]">
                     <Badge>
-                      <Zap className="size-3" /> {m.formules.length} formules
+                      <Zap className="size-3" /> {t('accueil.formules', { n: m.formules.length })}
                     </Badge>
-                    {utilise > 0 && <Badge ton="accent">{utilise} calcul{utilise > 1 ? 's' : ''}</Badge>}
+                    {utilise > 0 && <Badge ton="accent">{t('accueil.calculs', { n: utilise })}</Badge>}
                   </div>
                 </Link>
               );

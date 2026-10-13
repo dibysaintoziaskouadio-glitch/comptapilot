@@ -2,13 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { DescriptionFormule, DescriptionMoteur, Utilisateur } from '@/lib/types';
 
+/** Requête de session, partagée par les pages protégées et le fournisseur de préférences. */
+export const requeteSession = {
+  queryKey: ['session'],
+  queryFn: () => api<{ utilisateur: Utilisateur }>('/auth/moi'),
+  retry: false,
+  staleTime: 5 * 60_000,
+} as const;
+
 export function useSession() {
-  return useQuery({
-    queryKey: ['session'],
-    queryFn: () => api<{ utilisateur: Utilisateur }>('/auth/moi'),
-    retry: false,
-    staleTime: 5 * 60_000,
-  });
+  return useQuery(requeteSession);
 }
 
 export function useCatalogue() {
