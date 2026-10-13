@@ -1,0 +1,61 @@
+# Comptapilot — pile complète : PostgreSQL, API, interface (nginx).
+#
+#   cp .env.example .env      # puis renseigner JWT_SECRET et POSTGRES_PASSWORD
+#   docker compose up -d --build
+#   → http://localhost:8090   (port modifiable avec COMPTA_PORT)
+#
+# Seule l'interface est publiée sur l'hôte ; la base et l'API restent sur le réseau interne.
+
+name: comptapilot
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: compta
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
+      POSTGRES_DB: compta
+    volumes:
+      - donnees:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compta -d compta"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      DATABASE_URL: postgresql://compta:${POSTGRES_PASSWORD}@postgres:5432/compta?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant dans .env (openssl rand -base64 48)}
+      JWT_TTL_HEURES: ${JWT_TTL_HEURES:-12}
+      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8090}
+      # Mettre à true derrière HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # Un saut (nginx) : l'adresse du client est lue dans X-Forwarded-For pour la limitation de débit.
+      TRUST_PROXY: 1
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${COMPTA_PORT:-8090}:80"
+
+volumes:
+  donnees:

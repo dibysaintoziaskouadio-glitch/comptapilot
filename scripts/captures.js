@@ -3,7 +3,7 @@
  *
  * Prérequis : API (4100) et Vite (5174) démarrés, base de dev accessible.
  * Usage : node scripts/captures.js [urlDeBase]
- * Sortie : docs/screenshots/*.png ; les erreurs de console sont listées à la fin.
+ * Sortie : docs/screenshots/*.png (ou $CAPTURES_DIR) ; les erreurs de console sont listées à la fin.
  *
  * Chaque étape a un délai explicite ; une étape en échec est signalée sans
  * bloquer les suivantes, et un chien de garde arrête le script après 4 minutes.
@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const { chromium } = require('playwright-core');
 
 const BASE = process.argv[2] || 'http://localhost:5174';
-const SORTIE = path.join(__dirname, '..', 'docs', 'screenshots');
+const SORTIE = process.env.CAPTURES_DIR || path.join(__dirname, '..', 'docs', 'screenshots');
 const CHROME = process.env.CHROME_PATH || '/usr/bin/google-chrome';
 const COMPTE = { nom: 'Compte de démonstration', email: 'demo@comptapilot.fr', motDePasse: 'demonstration-2026' };
 
