@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>Comptapilot — présentation</title>
+<link rel="stylesheet" href="polices.css" />
+<style>
+/*
+ * Animation de présentation (motion design), 1920 × 1080, 58 s.
+ * Toutes les animations CSS ont un délai absolu (en secondes depuis le début) : la page peut être jouée
+ * en temps réel (téléprompteur) ou image par image (rendu vidéo) en fixant currentTime de chaque animation.
+ */
+:root { --violet: #8b5cf6; --magenta: #ec4899; --cyan: #22d3ee; --nuit: #140d24; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--nuit); }
+body { font-family: 'Figtree Variable', system-ui, sans-serif; color: #fff; }
+.scene-root { position: relative; width: 1920px; height: 1080px; overflow: hidden;
+  background: radial-gradient(70rem 46rem at 88% -12%, rgb(132 52 190 / .75), transparent 62%), radial-gradient(56rem 40rem at -8% 108%, rgb(150 40 140 / .55), transparent 60%), linear-gradient(165deg, #2a1840, #1c1230 55%, #120a1f); }
+canvas#onde { position: absolute; inset: 0; width: 1920px; height: 1080px; mix-blend-mode: screen; opacity: .85; }
+.lueur { position: absolute; border-radius: 50%; filter: blur(120px); animation: derive 18s ease-in-out 0s infinite both; }
+@keyframes derive { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(80px,-60px) scale(1.1); } }
+
+/* Scènes : visibles de --debut à --debut + --duree, fondu enchaîné. */
+.scene { position: absolute; inset: 0; opacity: 0; will-change: opacity, transform; animation: scene calc(var(--duree) * 1s) linear calc(var(--debut) * 1s) both; }
+@keyframes scene {
+  0% { opacity: 0; transform: scale(1.035); animation-timing-function: cubic-bezier(.22,1,.36,1); }
+  11% { opacity: 1; transform: scale(1); }
+  89% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(.55,0,.75,.4); }
+  100% { opacity: 0; transform: scale(.975); }
+}
+
+/* Éléments : --d = instant d'apparition absolu (s). */
+[data-a] { animation-delay: calc(var(--d) * 1s); animation-fill-mode: both; animation-timing-function: cubic-bezier(.16,1,.3,1); will-change: transform, opacity; }
+.monte { animation-name: monte; animation-duration: 1.4s; }
+@keyframes monte { from { opacity: 0; transform: translateY(46px); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
+.zoom { animation-name: zoom; animation-duration: 1.6s; }
+@keyframes zoom { from { opacity: 0; transform: scale(.9); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
+.gauche { animation-name: gauche; animation-duration: 1.4s; }
+@keyframes gauche { from { opacity: 0; transform: translateX(-70px); } to { opacity: 1; transform: none; } }
+.droite { animation-name: droite; animation-duration: 1.6s; }
+@keyframes droite { from { opacity: 0; transform: translateX(90px) scale(.97); } to { opacity: 1; transform: none; } }
+.pop { animation-name: pop; animation-duration: .9s; animation-timing-function: cubic-bezier(.34,1.36,.64,1); }
+@keyframes pop { from { opacity: 0; transform: scale(.6) translateY(16px); } to { opacity: 1; transform: none; } }
+
+.titre { font-family: 'Sora Variable', sans-serif; font-weight: 700; letter-spacing: -.035em; line-height: 1.02; }
+.degrade { background: linear-gradient(100deg, #67e8f9, #a78bfa 40%, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.verre { background: linear-gradient(180deg, rgb(70 48 110 / .62), rgb(40 26 66 / .55)); border: 1px solid rgb(255 255 255 / .14); box-shadow: inset 0 1px 0 rgb(255 255 255 / .14), 0 40px 90px -40px rgb(0 0 0 / .7); }
+.pastille { display: inline-flex; align-items: center; gap: 14px; padding: 16px 28px; border-radius: 999px; font-size: 30px; font-weight: 600; }
+.point { width: 14px; height: 14px; border-radius: 50%; background: #34d399; box-shadow: 0 0 16px #34d399; }
+
+/* Écran d'ordinateur */
+.ecran { position: absolute; border-radius: 28px; padding: 14px; }
+.ecran .vue { position: relative; width: 100%; height: 100%; border-radius: 18px; overflow: hidden; background: #1a1230; }
+.ecran img { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; }
+.ken { animation-name: ken; animation-timing-function: ease-in-out; }
+/* Téléphone */
+.tel { position: absolute; width: 400px; height: 840px; border-radius: 64px; padding: 14px; background: linear-gradient(160deg, #3a2a58, #120b20); box-shadow: 0 60px 120px -40px rgb(0 0 0 / .8), inset 0 0 0 2px rgb(255 255 255 / .12); }
+.tel .vue { width: 100%; height: 100%; border-radius: 52px; overflow: hidden; position: relative; background: #140d24; padding-top: 58px; }
+.tel img { width: 100%; display: block; }
+.tel::before { content: ''; position: absolute; top: 28px; left: 50%; width: 118px; height: 32px; margin-left: -59px; border-radius: 20px; background: #05030a; z-index: 2; }
+.flotte { animation: flotte 6s ease-in-out 0s infinite both; }
+@keyframes flotte { 0%,100% { translate: 0 0; } 50% { translate: 0 -22px; } }
+
+.case { width: 92px; height: 112px; border-radius: 22px; display: grid; place-items: center; font: 700 56px 'Sora Variable', sans-serif; }
+.logo { width: 220px; height: 220px; border-radius: 56px; }
+</style>
+<script src="scenario.js"></script>
+</head>
+<body>
+<div class="scene-root" id="racine">
+  <div class="lueur" style="right:-200px;top:-260px;width:900px;height:900px;background:rgb(150 70 230 / .35)"></div>
+  <div class="lueur" style="left:-260px;bottom:-320px;width:820px;height:820px;background:rgb(236 72 153 / .25);animation-delay:-7s"></div>
+  <canvas id="onde" width="1920" height="1080"></canvas>
+
+  <!-- 1. Intro : logo -->
+  <section class="scene" style="--debut:0;--duree:5.2">
+    <div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center">
+      <div>
+        <img class="logo zoom" data-a style="--d:.2;box-shadow:0 30px 90px -20px rgb(139 92 246 / .9)" src="../frontend/public/brand/vision-technologie.svg" alt="" />
+        <p class="titre monte" data-a style="--d:1;font-size:150px;margin-top:46px">Comptapilot</p>
+        <p class="monte" data-a style="--d:1.6;font-size:38px;color:rgb(255 255 255 / .7);margin-top:18px;letter-spacing:.06em">par Vision Technologie</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Accroche -->
+  <section class="scene" style="--debut:5;--duree:6.4">
+    <div style="position:absolute;left:160px;top:300px;right:160px">
+      <p class="titre monte" data-a style="--d:5.4;font-size:128px">Le comptable</p>
+      <p class="titre monte" data-a style="--d:5.8;font-size:128px">ne calcule plus.</p>
+      <p class="titre monte degrade" data-a style="--d:7.4;font-size:128px;margin-top:14px">Il vérifie et il valide.</p>
+    </div>
+  </section>
+
+  <!-- 3. Tableau de bord -->
+  <section class="scene" style="--debut:11.2;--duree:9.2">
+    <div class="ecran verre droite" data-a style="--d:11.4;left:600px;top:150px;width:1230px;height:800px">
+      <div class="vue"><img class="ken" data-a style="--d:11.4;animation-duration:9s" src="medias/tableau-de-bord.png" alt="" /></div>
+    </div>
+    <div style="position:absolute;left:100px;top:250px;width:440px">
+      <p class="titre monte" data-a style="--d:11.6;font-size:200px" ><span class="degrade">163</span></p>
+      <p class="titre monte" data-a style="--d:11.9;font-size:56px;margin-top:6px">formules</p>
+      <p class="monte" data-a style="--d:12.3;font-size:30px;color:rgb(255 255 255 / .72);margin-top:22px;line-height:1.35">comptables, fiscales et sociales</p>
+      <div style="margin-top:40px;display:flex;flex-direction:column;gap:18px;align-items:flex-start">
+        <span class="pastille verre gauche" data-a style="--d:14.5"><span class="point"></span> 13 moteurs</span>
+        <span class="pastille verre gauche" data-a style="--d:15.2"><span class="point" style="background:#a78bfa;box-shadow:0 0 16px #a78bfa"></span> Barèmes datés</span>
+        <span class="pastille verre gauche" data-a style="--d:15.9"><span class="point" style="background:#22d3ee;box-shadow:0 0 16px #22d3ee"></span> Contrôles automatiques</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Calcul -->
+  <section class="scene" style="--debut:20.2;--duree:10.2">
+    <div class="ecran verre zoom" data-a style="--d:20.3;left:90px;top:130px;width:1140px;height:820px">
+      <div class="vue"><img class="ken2" data-a style="--d:20.3;animation-duration:10s" src="medias/bulletin.png" alt="" /></div>
+    </div>
+    <div class="ecran verre droite" data-a style="--d:23.4;left:930px;top:330px;width:900px;height:620px">
+      <div class="vue"><img class="derive" data-a style="--d:23.4;animation-duration:7s;width:150%;left:-48%;top:-52%" src="medias/emprunt-etapes.png" alt="" /></div>
+    </div>
+    <div style="position:absolute;left:1290px;top:110px;display:flex;flex-wrap:wrap;gap:14px;width:560px">
+      <span class="pastille verre pop" data-a style="--d:21.4;font-size:26px">ƒ Formule</span>
+      <span class="pastille verre pop" data-a style="--d:22.6;font-size:26px">1·2·3 Étapes</span>
+      <span class="pastille verre pop" data-a style="--d:25.6;font-size:26px">✓ Contrôles</span>
+      <span class="pastille verre pop" data-a style="--d:27;font-size:26px">§ Référence légale</span>
+    </div>
+  </section>
+
+  <!-- 5. Langue et monnaie -->
+  <section class="scene" style="--debut:30.2;--duree:7.2">
+    <div class="ecran verre zoom" data-a style="--d:30.3;left:660px;top:120px;width:1160px;height:840px">
+      <div class="vue"><img class="ken3" data-a style="--d:30.3;animation-duration:7s" src="medias/preferences-fcfa.png" alt="" /></div>
+    </div>
+    <div style="position:absolute;left:120px;top:260px;width:560px">
+      <p class="titre monte" data-a style="--d:30.6;font-size:96px">FR <span style="color:rgb(255 255 255 / .35)">·</span> EN</p>
+      <div style="margin-top:46px;display:flex;flex-direction:column;gap:20px;align-items:flex-start">
+        <span class="pastille verre gauche" data-a style="--d:32.6;font-size:44px">F CFA</span>
+        <span class="pastille verre gauche" data-a style="--d:33.4;font-size:44px">€ Euro</span>
+        <span class="pastille verre gauche" data-a style="--d:34.1;font-size:44px">$ Dollar</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Sécurité -->
+  <section class="scene" style="--debut:37.2;--duree:8.2">
+    <div class="ecran verre droite" data-a style="--d:37.3;left:820px;top:200px;width:1000px;height:690px">
+      <div class="vue"><img class="derive" data-a style="--d:37.3;animation-duration:8s;width:150%;left:-6%;top:-11%" src="medias/inscription-securite.png" alt="" /></div>
+    </div>
+    <div style="position:absolute;left:120px;top:210px;width:640px">
+      <p class="titre monte" data-a style="--d:37.6;font-size:84px">Comptes<br/><span class="degrade">protégés</span></p>
+      <div style="display:flex;gap:16px;margin-top:56px">
+        <div class="case verre pop" data-a style="--d:39.4">4</div>
+        <div class="case verre pop" data-a style="--d:39.6">8</div>
+        <div class="case verre pop" data-a style="--d:39.8">2</div>
+        <div class="case verre pop" data-a style="--d:40">7</div>
+        <div class="case verre pop" data-a style="--d:40.2">1</div>
+        <div class="case verre pop" data-a style="--d:40.4">9</div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:40px;flex-wrap:wrap">
+        <span class="pastille verre monte" data-a style="--d:41.2;font-size:26px">✉ E-mail</span>
+        <span class="pastille verre monte" data-a style="--d:41.8;font-size:26px">✆ SMS</span>
+        <span class="pastille verre monte" data-a style="--d:42.4;font-size:26px"><span class="point"></span> WhatsApp</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Mobile -->
+  <section class="scene" style="--debut:45.2;--duree:7.2">
+    <div class="ecran verre zoom" data-a style="--d:45.3;left:120px;top:200px;width:1050px;height:680px;opacity:.9">
+      <div class="vue"><img class="ken" data-a style="--d:45.3;animation-duration:7s" src="medias/tableau-de-bord.png" alt="" /></div>
+    </div>
+    <div class="droite" data-a style="--d:45.8;position:absolute;left:1060px;top:120px"><div class="tel flotte"><div class="vue"><img src="medias/mobile-accueil.png" alt="" /></div></div></div>
+    <div class="droite" data-a style="--d:46.5;position:absolute;left:1440px;top:190px"><div class="tel flotte" style="animation-delay:-3s"><div class="vue"><img src="medias/mobile-connexion.png" alt="" /></div></div></div>
+    <div style="position:absolute;left:120px;top:920px;display:flex;gap:16px">
+      <span class="pastille verre monte" data-a style="--d:46.4;font-size:28px"><span class="point" style="background:#a78bfa;box-shadow:0 0 16px #a78bfa"></span> Ordinateur</span>
+      <span class="pastille verre monte" data-a style="--d:47.1;font-size:28px"><span class="point"></span> Android</span>
+      <span class="pastille verre monte" data-a style="--d:47.8;font-size:28px"><span class="point" style="background:#e5e7eb;box-shadow:0 0 16px #e5e7eb"></span> iPhone</span>
+    </div>
+  </section>
+
+  <!-- 8. Fin -->
+  <section class="scene" style="--debut:52.2;--duree:5.8">
+    <div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center">
+      <div>
+        <img class="logo zoom" data-a style="--d:52.3;width:170px;height:170px;border-radius:44px" src="../frontend/public/brand/vision-technologie.svg" alt="" />
+        <p class="titre monte" data-a style="--d:52.6;font-size:110px;margin-top:34px">Comptapilot</p>
+        <p class="monte degrade" data-a style="--d:53.1;font-size:44px;font-weight:600;margin-top:16px">La comptabilité qui calcule pour vous.</p>
+        <p class="monte" data-a style="--d:53.6;font-size:28px;color:rgb(255 255 255 / .6);margin-top:30px;letter-spacing:.08em">VISION TECHNOLOGIE</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+/* Mouvements de caméra lents sur les captures (Ken Burns). */
+/* Dérive douce des captures recadrées (le recadrage est porté par left/top, la dérive par transform). */
+.derive { animation-name: derive2; animation-timing-function: ease-in-out; }
+@keyframes derive2 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.06) translate(-1.5%, -2%); } }
+@keyframes ken { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-3%, -4%); } }
+.ken2 { animation-name: ken2; animation-timing-function: ease-in-out; }
+@keyframes ken2 { from { transform: scale(1.02) translate(0, 0); } to { transform: scale(1.18) translate(-12%, -3%); } }
+.ken3 { animation-name: ken3; animation-timing-function: ease-in-out; }
+@keyframes ken3 { from { transform: scale(1.02) translate(-6%, -2%); } to { transform: scale(1.4) translate(-36%, -6%); } }
+</style>
+
+<script>
+/* Ruban lumineux (même principe que l'écran de connexion), fonction du temps t. */
+const cv = document.getElementById('onde');
+const ctx = cv.getContext('2d');
+function ruban(t, couleurs, o) {
+  const l = 1920, h = 1080;
+  const g = ctx.createLinearGradient(0, 0, l, h);
+  couleurs.forEach((c, i) => g.addColorStop(i / (couleurs.length - 1), c));
+  ctx.strokeStyle = g;
+  const mediane = (x) => o.cy + Math.sin(x * 0.0032 + t * 0.5 + o.ph) * h * o.a + Math.sin(x * 0.0013 - t * 0.3) * h * o.a * 0.6;
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 46; i++) {
+    const s = i / 45 - 0.5;
+    ctx.globalAlpha = (0.08 + 0.36 * (1 - Math.abs(s) * 2) ** 2) * o.op;
+    ctx.beginPath();
+    for (let x = -20; x <= l + 20; x += 10) {
+      const env = Math.sin(Math.PI * Math.min(1, Math.max(0, (x + 20) / (l + 40))));
+      const y = mediane(x) + s * h * o.e * Math.sin(x * 0.0042 + t * 0.8 + o.ph + s * 0.7) * (0.3 + 0.7 * env);
+      x === -20 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+function dessinerOnde(t) {
+  ctx.clearRect(0, 0, 1920, 1080);
+  ctx.globalCompositeOperation = 'lighter';
+  ruban(t, ['#2563eb', '#22d3ee', '#6366f1'], { ph: 2.1, a: 0.12, e: 0.38, op: 0.45, cy: 640 });
+  ruban(t, ['#3b6bff', '#7c3aed', '#c026d3', '#ff3cac'], { ph: 0, a: 0.15, e: 0.55, op: 0.85, cy: 560 });
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/* Pilotage : aller(t) fixe l'image à l'instant t (rendu image par image) ; jouer() lance la lecture en temps réel. */
+window.aller = (t) => {
+  for (const a of document.getAnimations()) {
+    a.pause();
+    a.currentTime = t * 1000;
+  }
+  dessinerOnde(t);
+};
+window.jouer = () => {
+  const t0 = performance.now();
+  for (const a of document.getAnimations()) { a.currentTime = 0; a.play(); }
+  const boucle = () => {
+    const t = (performance.now() - t0) / 1000;
+    dessinerOnde(t);
+    if (t < SCENARIO.duree) requestAnimationFrame(boucle);
+  };
+  requestAnimationFrame(boucle);
+  return t0;
+};
+window.pret = document.fonts.ready.then(() => Promise.all([...document.images].map((i) => (i.complete ? 0 : new Promise((r) => (i.onload = i.onerror = r))))));
+const params = new URLSearchParams(location.search);
+if (params.has('lire')) window.pret.then(() => window.jouer());
+else window.pret.then(() => window.aller(Number(params.get('t') ?? 0)));
+</script>
+</body>
+</html>

@@ -6,3 +6,8 @@ coverage/
 backups/
 .logs/
 *.tsbuildinfo
+
+# Vidéo : fichiers produits et enregistrements
+video/*.mp4
+video/voix*.webm
+video/voix.wav

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Comptapilot — aperçu de la vidéo</title>
+<style>
+/* Aperçu en temps réel : l'animation et la voix off (voix.wav) jouées ensemble, sans attendre le rendu MP4. */
+body { margin: 0; min-height: 100vh; background: #0d0818; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; font-family: system-ui, sans-serif; color: #fff; }
+.cadre { width: min(96vw, calc(88vh * 16 / 9)); aspect-ratio: 16 / 9; position: relative; overflow: hidden; border-radius: 16px; box-shadow: 0 30px 80px -30px #000; background: #140d24; }
+iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
+button { font: 700 17px system-ui, sans-serif; border: 0; border-radius: 999px; padding: 14px 30px; cursor: pointer; color: #fff; background: linear-gradient(100deg, #9333ea, #db2777); }
+</style>
+</head>
+<body>
+<div class="cadre" id="cadre"><iframe id="anim" src="presentation.html?t=0"></iframe></div>
+<button id="lire">▶ Lire la vidéo avec le son</button>
+<audio id="voix" src="voix.wav" preload="auto"></audio>
+<script>
+const cadre = document.getElementById('cadre'), anim = document.getElementById('anim');
+const ajuster = () => (anim.style.transform = `scale(${cadre.clientWidth / 1920})`);
+addEventListener('resize', ajuster); ajuster();
+document.getElementById('lire').onclick = async () => {
+  const v = document.getElementById('voix');
+  v.currentTime = 0;
+  await v.play();
+  anim.contentWindow.jouer();
+};
+</script>
+</body>
+</html>
