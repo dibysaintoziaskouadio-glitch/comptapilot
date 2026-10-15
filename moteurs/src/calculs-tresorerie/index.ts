@@ -132,7 +132,7 @@ export const emprunt = formule({
       ['amortissement-constant', 'Amortissement constant'],
       ['in-fine', 'In fine'],
     ]),
-    entier('differe', 'Différé (nombre d’échéances)', { defaut: 0, min: '0' }),
+    entier('differe', 'Différé (nombre d’échéances)', { defaut: 0, min: '0', max: '599' }),
     choix('typeDiffere', 'Type de différé', [
       ['partiel', 'Partiel (intérêts payés)'],
       ['total', 'Total (intérêts capitalisés)'],
@@ -238,8 +238,8 @@ export const empruntTauxVariable = formule({
   references: [{ texte: 'Code de la consommation art. L.313-25 — information sur la variation du taux' }],
   champs: [
     montant('capital', 'Capital emprunté', { defaut: '200000' }),
-    entier('dureeMois', 'Durée (mois)', { defaut: 120, min: '1' }),
-    table('paliers', 'Paliers de taux', [entier('aPartirDu', 'À partir de l’échéance n°', { min: '1' }), taux('taux', 'Taux annuel')], {
+    entier('dureeMois', 'Durée (mois)', { defaut: 120, min: '1', max: '600' }),
+    table('paliers', 'Paliers de taux', [entier('aPartirDu', 'À partir de l’échéance n°', { min: '1', max: '600' }), taux('taux', 'Taux annuel')], {
       min: '1',
       defaut: [
         { aPartirDu: '1', taux: '3.2' },
@@ -733,7 +733,7 @@ export const annuites = formule({
   champs: [
     montant('annuite', 'Versement périodique', { defaut: '500' }),
     taux('taux', 'Taux périodique', { defaut: '0.25' }),
-    entier('n', 'Nombre de versements', { defaut: 120, min: '1' }),
+    entier('n', 'Nombre de versements', { defaut: 120, min: '1', max: '1200' }),
     choix('terme', 'Versements', [
       ['echu', 'En fin de période'],
       ['echoir', 'En début de période'],
@@ -766,7 +766,7 @@ export const loyerCreditBail = formule({
     montant('valeur', 'Valeur du bien HT', { defaut: '60000' }),
     montant('valeurResiduelle', 'Valeur résiduelle / option d’achat', { defaut: '600' }),
     taux('taux', 'Taux annuel', { defaut: '4.5' }),
-    entier('nbLoyers', 'Nombre de loyers', { defaut: 20, min: '1' }),
+    entier('nbLoyers', 'Nombre de loyers', { defaut: 20, min: '1', max: '600' }),
     champPeriodicite,
     choix('terme', 'Paiement', [
       ['echoir', 'Terme à échoir'],

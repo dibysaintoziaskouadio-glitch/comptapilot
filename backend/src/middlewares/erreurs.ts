@@ -21,6 +21,10 @@ export function gestionnaireErreurs(err: unknown, req: Request, res: Response, _
     res.status(409).json({ erreur: { code: 'CONFLIT', message: 'Cet élément existe déjà' } });
     return;
   }
+  if ((err as { type?: string } | null)?.type === 'entity.too.large') {
+    res.status(413).json({ erreur: { code: 'TROP_VOLUMINEUX', message: 'Requête trop volumineuse.' } });
+    return;
+  }
   if (err instanceof SyntaxError && 'body' in (err as object)) {
     res.status(400).json({ erreur: { code: 'JSON_INVALIDE', message: 'Corps de requête JSON invalide' } });
     return;

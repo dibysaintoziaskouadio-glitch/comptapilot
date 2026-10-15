@@ -8,6 +8,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import type { CanalCode, ObjetCode } from '@prisma/client';
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { env } from '../../config/env';
+import { logger } from '../../config/logger';
 import { prisma } from '../../config/prisma';
 import { ErreurApi } from '../../utils/erreurs';
 import { canauxConfigures, canauxDisponibles, envoyer } from '../notifications/expediteur';
@@ -40,7 +41,10 @@ interface Cible {
 export interface Envoi {
   canal: CanalCode;
   destination: string;
-  /** Code renvoyé seulement en mode démonstration, et seulement pour un canal sans fournisseur (jamais pour un vrai envoi). */
+  /**
+   * Code renvoyé seulement en mode démonstration, pour un canal sans fournisseur (jamais pour un vrai envoi),
+   * et jamais pour une réinitialisation : sinon n'importe qui pourrait changer le mot de passe d'un compte existant.
+   */
   codeDemo?: string;
 }
 
@@ -68,9 +72,11 @@ export async function envoyerCode(u: Cible, objet: ObjetCode, canal: CanalCode):
   try {
     await envoyer({ canal, destination, sujet: m.sujet, texte: canal === 'EMAIL' ? m.texte : m.court, html: canal === 'EMAIL' ? m.html : undefined });
   } catch (e) {
-    throw new ErreurApi(502, 'ENVOI_ECHOUE', `Le message n’a pas pu être envoyé (${(e as Error).message.slice(0, 120)}).`);
+    // Le détail du fournisseur (SMTP, Twilio) reste dans le journal du serveur.
+    logger.error({ err: e, canal }, 'Envoi du code impossible');
+    throw new ErreurApi(502, 'ENVOI_ECHOUE', 'Le message n’a pas pu être envoyé. Réessayez plus tard ou choisissez un autre mode d’envoi.');
   }
-  return { canal, destination, ...(env.CODES_VISIBLES && !canauxConfigures()[canal] && { codeDemo: code }) };
+  return { canal, destination, ...(env.CODES_VISIBLES && !canauxConfigures()[canal] && objet !== 'REINITIALISATION' && { codeDemo: code }) };
 }
 
 /** Vérifie le dernier code actif de l'objet ; le consomme s'il est juste. */
@@ -78,14 +84,17 @@ export async function verifierCode(utilisateurId: string, objet: ObjetCode, sais
   const c = await prisma.codeVerification.findFirst({ where: { utilisateurId, objet, utiliseLe: null }, orderBy: { creeLe: 'desc' } });
   if (!c) throw new ErreurApi(422, 'CODE_INCORRECT', 'Code incorrect ou expiré. Demandez un nouveau code.', { champ: 'code' });
   if (c.expireLe.getTime() < Date.now()) throw new ErreurApi(422, 'CODE_EXPIRE', 'Ce code a expiré. Demandez un nouveau code.', { champ: 'code' });
-  if (c.tentatives >= ESSAIS_MAX) throw new ErreurApi(422, 'CODE_EPUISE', 'Trop d’essais avec ce code. Demandez un nouveau code.', { champ: 'code' });
+  // L'essai est compté avant la comparaison, par une mise à jour conditionnelle : des requêtes simultanées
+  // ne peuvent pas dépasser ESSAIS_MAX ni réutiliser un code déjà consommé.
+  const essai = await prisma.codeVerification.updateMany({ where: { id: c.id, utiliseLe: null, tentatives: { lt: ESSAIS_MAX } }, data: { tentatives: { increment: 1 } } });
+  if (essai.count === 0) throw new ErreurApi(422, 'CODE_EPUISE', 'Trop d’essais avec ce code. Demandez un nouveau code.', { champ: 'code' });
   const attendu = Buffer.from(c.empreinte, 'hex');
   const recu = Buffer.from(empreinte(saisi.replace(/\s/g, '')), 'hex');
   if (!timingSafeEqual(attendu, recu)) {
-    const restants = ESSAIS_MAX - c.tentatives - 1;
-    await prisma.codeVerification.update({ where: { id: c.id }, data: { tentatives: { increment: 1 } } });
+    const restants = Math.max(0, ESSAIS_MAX - c.tentatives - 1);
     throw new ErreurApi(422, 'CODE_INCORRECT', restants > 0 ? `Code incorrect. ${restants} essai${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''}.` : 'Code incorrect. Demandez un nouveau code.', { champ: 'code', restants });
   }
-  await prisma.codeVerification.update({ where: { id: c.id }, data: { utiliseLe: new Date() } });
+  const consomme = await prisma.codeVerification.updateMany({ where: { id: c.id, utiliseLe: null }, data: { utiliseLe: new Date() } });
+  if (consomme.count === 0) throw new ErreurApi(422, 'CODE_INCORRECT', 'Code incorrect ou expiré. Demandez un nouveau code.', { champ: 'code' });
   return { canal: c.canal, destination: c.destination };
 }

@@ -83,6 +83,7 @@ export const repartitionCentres = formule({
   champs: [
     table('centres', 'Centres et répartition primaire', [texte('centre', 'Centre'), choix('type', 'Type', [['auxiliaire', 'Auxiliaire'], ['principal', 'Principal']]), montant('primaire', 'Total primaire'), nombre('unitesOeuvre', 'Nombre d’UO', { optionnel: true }), texte('natureUo', 'Nature de l’UO', { optionnel: true })], {
       min: '2',
+      max: '200', // prestations réciproques : résolution d'un système n × n
       defaut: [
         { centre: 'Administration', type: 'auxiliaire', primaire: '24000', unitesOeuvre: '', natureUo: '' },
         { centre: 'Entretien', type: 'auxiliaire', primaire: '15000', unitesOeuvre: '', natureUo: '' },

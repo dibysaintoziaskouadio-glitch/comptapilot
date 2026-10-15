@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { catalogue, decrireFormule, executerFormule, obtenirFormule, ResultatCalcul } from '@compta/moteurs';
+import { catalogue, decrireFormule, obtenirFormule, ResultatCalcul } from '@compta/moteurs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { limiteCalculs } from '../../middlewares/limites';
@@ -8,6 +8,8 @@ import { DEVISES } from '../../config/preferences';
 import { empreinte } from '../../utils/empreinte';
 import { ErreurApi, nonTrouve } from '../../utils/erreurs';
 import { valider } from '../../utils/validation';
+import { journaliser } from '../audit';
+import { executer } from './executeur';
 
 export const routesCalc = Router();
 
@@ -53,7 +55,7 @@ routesCalc.post('/:moteur/:formule', limiteCalculs, async (req, res) => {
   const f = obtenirFormule(String(req.params.moteur), String(req.params.formule));
   if (!f) throw nonTrouve('Formule');
   const d = valider(schemaExecution, req.body);
-  const r = executerFormule(f, d.entrees);
+  const r = await executer(f.moteur, f.id, d.entrees);
   const hash = empreinteResultat(r, d.devise);
   let calculId: string | undefined;
   if (d.enregistrer) {
@@ -82,6 +84,7 @@ routesCalc.post('/:moteur/:formule', limiteCalculs, async (req, res) => {
       },
     });
     calculId = c.id;
+    if (d.valider) await journaliser(req.session!.id, 'VALIDATION_CALCUL', c.id, { formule: `${f.moteur}/${f.id}`, empreinte: hash });
   }
   res.json({ resultat: r, empreinte: hash, calculId });
 });

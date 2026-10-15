@@ -276,7 +276,7 @@ export const contributionsFormation = formule({
     dateOperation('Année (date)', { defaut: '2024-12-31' }),
     montant('masseSalariale', 'Masse salariale brute annuelle', { defaut: '850000' }),
     montant('masseCdd', 'dont rémunérations des CDD', { defaut: '60000' }),
-    entier('effectif', 'Effectif moyen', { defaut: 18, min: '0' }),
+    entier('effectif', 'Effectif moyen', { defaut: 18, min: '0', max: '10000000' }),
     booleen('alsaceMoselle', 'Établissement en Alsace-Moselle'),
   ],
   exemples: [{ titre: 'PME 18 salariés', entrees: {}, attendu: { taPrincipale: '5015.00', taSolde: '765.00', cfp: '8500.00', cpfCdd: '600.00', total: '14880.00' } }],

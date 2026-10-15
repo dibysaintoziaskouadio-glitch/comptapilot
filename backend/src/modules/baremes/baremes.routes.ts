@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ajouterVersion, estDateIso, estObsolete, listerBaremes, obtenirBareme } from '@compta/moteurs';
+import { estDateIso, estObsolete, listerBaremes, obtenirBareme } from '@compta/moteurs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { exigerRole } from '../../middlewares/authentification';
 import { ErreurApi, nonTrouve } from '../../utils/erreurs';
 import { valider } from '../../utils/validation';
 import { journaliser } from '../audit';
+import { enregistrerVersion } from '../calc/executeur';
 
 export const routesBaremes = Router();
 
@@ -66,7 +67,7 @@ routesBaremes.post('/:code/versions', exigerRole('ADMIN'), async (req, res) => {
   const d = valider(schemaVersion, req.body);
   const reference = b.versions[b.versions.length - 1].valeurs;
   if (!memeStructure(reference, d.valeurs)) throw new ErreurApi(422, 'STRUCTURE', 'Les valeurs doivent reprendre exactement la structure de la version précédente.');
-  ajouterVersion(b.code, { du: d.du, au: d.au, valeurs: d.valeurs, source: d.source, note: d.note, statut: d.statut });
+  enregistrerVersion(b.code, { du: d.du, au: d.au, valeurs: d.valeurs, source: d.source, note: d.note, statut: d.statut });
   const v = await prisma.versionBareme.upsert({
     where: { code_du: { code: b.code, du: d.du } },
     create: { code: b.code, moteur: b.moteur, libelle: b.libelle, du: d.du, au: d.au, valeurs: d.valeurs as Prisma.InputJsonValue, source: d.source, note: d.note, statut: d.statut === 'officiel' ? 'OFFICIEL' : 'A_VERIFIER', origine: 'SAISIE', auteurId: req.session!.id },

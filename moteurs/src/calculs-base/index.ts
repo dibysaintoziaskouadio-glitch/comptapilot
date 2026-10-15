@@ -15,6 +15,7 @@ import {
   Decimal,
   diviser,
   ecartType,
+  ErreurCalcul,
   entier,
   estOuvrable,
   estOuvre,
@@ -335,6 +336,8 @@ export const repartitionProportionnelle = formule({
       .map((x, i) => ({ i, reste: x.minus(parts_[i]) }))
       .sort((a, b) => b.reste.comparedTo(a.reste) || a.i - b.i);
     const sensReliquat = reliquat >= 0 ? 1 : -1;
+    // Le reliquat ne dépasse pas un centime par part ; au-delà, la précision du calcul est dépassée.
+    if (Math.abs(reliquat) > ordre.length) throw new ErreurCalcul('Montant trop grand pour une répartition au centime.');
     for (let k = 0; reliquat !== 0; k = (k + 1) % ordre.length) {
       parts_[ordre[k].i] = parts_[ordre[k].i].plus(d('0.01').times(sensReliquat));
       reliquat -= sensReliquat;
@@ -429,7 +432,7 @@ export const moyenneMobile = formule({
   references: [{ texte: 'Analyse des séries chronologiques' }],
   champs: [
     liste('valeurs', 'Série', { min: '2', defaut: ['100', '120', '90', '130', '150', '110', '170', '160'] }),
-    entier('periode', 'Nombre de périodes k', { defaut: 3, min: '2' }),
+    entier('periode', 'Nombre de périodes k', { defaut: 3, min: '2', max: '1000' }),
   ],
   exemples: [{ titre: 'MM3', entrees: {}, attendu: { derniere: '146.67' } }],
   calculer(e, c) {
@@ -828,31 +831,39 @@ export const detectionDoublons = formule({
         ],
       },
     ),
-    entier('fenetre', 'Fenêtre (jours)', { defaut: 7, min: '0' }),
+    entier('fenetre', 'Fenêtre (jours)', { defaut: 7, min: '0', max: '3660' }),
   ],
   exemples: [{ titre: 'Deux doublons', entrees: {}, attendu: { doublons: '2' } }],
   calculer(e, c) {
     const p = e.pieces as { date: string; piece?: string; tiers: string; montant: Decimal }[];
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(sa|sas|sarl|eurl)\b/g, '').replace(/\W/g, '');
+    // Comparaison de toutes les paires : clés normalisées une seule fois, tableau limité aux LIGNES_MAX premières paires.
+    const LIGNES_MAX = 1000;
+    const jours = p.map((x) => numJour(x.date));
+    const tiers = p.map((x) => norm(x.tiers));
     const lignes: Record<string, string>[] = [];
+    let nb = 0;
     for (let i = 0; i < p.length; i++)
       for (let k = i + 1; k < p.length; k++) {
         const a = p[i];
         const b = p[k];
         const memeRef = a.piece && b.piece && a.piece === b.piece;
-        const proches = Math.abs(numJour(a.date) - numJour(b.date)) <= e.fenetre;
-        const memeTiersMontant = norm(a.tiers) === norm(b.tiers) && a.montant.equals(b.montant);
-        if (memeRef || (memeTiersMontant && proches))
+        const ecart = Math.abs(jours[i] - jours[k]);
+        const memeTiersMontant = tiers[i] === tiers[k] && a.montant.equals(b.montant);
+        if (!memeRef && !(memeTiersMontant && ecart <= e.fenetre)) continue;
+        nb++;
+        if (lignes.length < LIGNES_MAX)
           lignes.push({
             ligneA: String(i + 1),
             ligneB: String(k + 1),
-            motif: memeRef ? 'Même n° de pièce' : `Même tiers et montant à ${Math.abs(numJour(a.date) - numJour(b.date))} j`,
+            motif: memeRef ? 'Même n° de pièce' : `Même tiers et montant à ${ecart} j`,
             montant: a.montant.toFixed(2),
           });
       }
-    c.calc('doublons', 'Doublons suspectés', 'paires correspondant aux critères', d(lignes.length), 'entier', { principal: true });
+    c.calc('doublons', 'Doublons suspectés', 'paires correspondant aux critères', d(nb), 'entier', { principal: true });
+    if (nb > lignes.length) c.ctrl('info', 'DOUBLONS_TRONQUES', `Seules les ${LIGNES_MAX} premières paires sont détaillées.`);
     if (lignes.length) {
-      c.ctrl('avertissement', 'DOUBLONS', `${lignes.length} doublon(s) potentiel(s) à vérifier.`);
+      c.ctrl('avertissement', 'DOUBLONS', `${nb} doublon(s) potentiel(s) à vérifier.`);
       c.tableau({
         titre: 'Doublons suspectés',
         colonnes: [

@@ -12,6 +12,10 @@ export const Decimal = DecimalJs.clone({
   rounding: DecimalJs.ROUND_HALF_UP,
   toExpNeg: -40,
   toExpPos: 40,
+  // Au-delà de 10^100, une valeur devient infinie (et le calcul est refusé) : une puissance démesurée
+  // ne produit jamais un nombre de millions de chiffres que l'affichage devrait ensuite écrire.
+  maxE: 100,
+  minE: -100,
 });
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export type Decimal = DecimalJs;

@@ -46,6 +46,9 @@ model Utilisateur {
   codes        CodeVerification[]
   creeLe       DateTime  @default(now())
   derniereConnexion DateTime?
+  actif        Boolean   @default(true)   /// Compte désactivé par un administrateur : connexion et sessions refusées
+  derniereActivite DateTime?             /// Dernière requête authentifiée (mise à jour au plus une fois par minute)
+  versionSession Int     @default(0)       /// Incrémentée à chaque changement de mot de passe : les sessions ouvertes avant sont refusées
   calculs      Calcul[]
   versionsBaremes VersionBareme[]
   journal      JournalAudit[]

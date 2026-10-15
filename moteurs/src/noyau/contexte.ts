@@ -6,6 +6,7 @@
 import { d, Decimal, euros, somme, Valeur } from './decimal';
 import { fe, fp, frn } from './format';
 import { resoudreBareme } from './baremes';
+import { ErreurCalcul } from './erreurs';
 import {
   BaremeUtilise,
   Controle,
@@ -26,10 +27,16 @@ export interface OptionsResultat {
 }
 
 /** Valeur brute → chaîne stockée, selon l'unité. Les pourcentages sont fournis en fraction. */
+/** Refuse une valeur infinie ou indéterminée (dépassement de 10^100, division par zéro). */
+function fini(x: Decimal, libelle?: string): Decimal {
+  if (!x.isFinite()) throw new ErreurCalcul(`Résultat hors limites${libelle ? ` (${libelle})` : ''} : vérifiez les montants, taux et durées saisis.`);
+  return x;
+}
+
 export function serialiser(v: Valeur | string | boolean, unite: Unite, decimales?: number): string {
   if (unite === 'texte' || unite === 'date') return String(v);
   if (unite === 'booleen') return v ? 'oui' : 'non';
-  const x = d(v as Valeur);
+  const x = fini(d(v as Valeur));
   switch (unite) {
     case 'EUR':
     case 'devise':
@@ -74,6 +81,7 @@ export class Contexte {
 
   /** Enregistre une étape de calcul et renvoie la valeur (pour chaîner). */
   etape<T extends Decimal | string>(libelle: string, formule: string, valeur: T, unite?: Unite): T {
+    if (typeof valeur !== 'string') fini(valeur, libelle);
     this.etapes.push({
       libelle,
       formule,

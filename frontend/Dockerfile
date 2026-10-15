@@ -16,6 +16,7 @@ RUN npm run build -w moteurs && npm run build -w frontend
 
 FROM nginx:1.27-alpine AS runtime
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/en-tetes-securite.conf /etc/nginx/snippets/en-tetes-securite.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK --interval=15s --timeout=5s --retries=5 CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1

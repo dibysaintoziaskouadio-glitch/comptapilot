@@ -1,4 +1,4 @@
-import { Router, type Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -13,7 +13,7 @@ import { valider } from '../../utils/validation';
 import { journaliser } from '../audit';
 import { defautsMotDePasse } from '../../utils/motDePasse';
 import { DEVISES, LANGUES } from '../../config/preferences';
-import { canauxDisponibles } from '../notifications/expediteur';
+import { canauxConfigures, canauxDisponibles } from '../notifications/expediteur';
 import { envoyerCode, masquerEmail, masquerTelephone, normaliserTelephone, verifierCode, type Envoi } from '../verification/codes';
 
 const motDePasseRobuste = (nom: string, email: string, mdp: string, ctx: z.RefinementCtx) => {
@@ -52,9 +52,10 @@ const schemaReinitialisation = z.object({ ...identifiant, code: z.string().trim(
 const schemaVerifier = z.object({ jeton: z.string().min(10), cible: z.enum(['email', 'telephone']), code: z.string().trim().regex(/^\d{6}$/, 'Code à 6 chiffres') });
 const schemaRenvoyer = z.object({ jeton: z.string().min(10), cible: z.enum(['email', 'telephone']), canal: z.enum(['SMS', 'WHATSAPP']).optional() });
 
-const optionsCookie = () => ({
+/** Cookie `Secure` dès que la requête arrive en HTTPS (relais compris), même si COOKIE_SECURE n'est pas activé. */
+const optionsCookie = (req: Request) => ({
   httpOnly: true,
-  secure: env.COOKIE_SECURE,
+  secure: env.COOKIE_SECURE || req.secure,
   sameSite: 'lax' as const,
   maxAge: env.JWT_TTL_HEURES * 3600 * 1000,
   path: '/',
@@ -69,10 +70,10 @@ const estVerifie = (u: Utilisateur) => !!u.emailVerifieLe && (!u.telephone || !!
 
 // Jeton de vérification : distinct du jeton de session (émetteur différent), valable 30 minutes.
 const EMETTEUR_VERIFICATION = 'comptapilot-verification';
-const jetonVerification = (u: Utilisateur) => jwt.sign({ id: u.id }, env.JWT_SECRET, { expiresIn: '30m', issuer: EMETTEUR_VERIFICATION });
+const jetonVerification = (u: Utilisateur) => jwt.sign({ id: u.id }, env.JWT_SECRET, { expiresIn: '30m', issuer: EMETTEUR_VERIFICATION, algorithm: 'HS256' });
 async function lireJeton(jeton: string): Promise<Utilisateur> {
   try {
-    const p = jwt.verify(jeton, env.JWT_SECRET, { issuer: EMETTEUR_VERIFICATION }) as { id: string };
+    const p = jwt.verify(jeton, env.JWT_SECRET, { issuer: EMETTEUR_VERIFICATION, algorithms: ['HS256'] }) as { id: string };
     const u = await prisma.utilisateur.findUnique({ where: { id: p.id } });
     if (u) return u;
   } catch {
@@ -118,8 +119,9 @@ async function trouverParIdentifiant(d: { identifiant?: string; email?: string; 
   return tel ? prisma.utilisateur.findUnique({ where: { telephone: tel } }) : null;
 }
 
-function ouvrirSession(res: Response, u: Utilisateur) {
-  res.cookie(COOKIE_SESSION, signer(session(u)), optionsCookie());
+function ouvrirSession(req: Request, res: Response, u: Utilisateur) {
+  if (!u.actif) throw new ErreurApi(403, 'COMPTE_DESACTIVE', 'Ce compte a été désactivé. Contactez l’administrateur.');
+  res.cookie(COOKIE_SESSION, signer(session(u), u.versionSession), optionsCookie(req));
 }
 
 export const routesAuth = Router();
@@ -171,8 +173,8 @@ routesAuth.post('/verification/verifier', limiteAuth, async (req, res) => {
     u = await prisma.utilisateur.update({ where: { id: u.id }, data: { telephoneVerifieLe: new Date() } });
   }
   if (estVerifie(u)) {
-    await journaliser(u.id, 'COMPTE_CONFIRME', u.email);
-    ouvrirSession(res, u);
+    await journaliser(u.id, 'COMPTE_CONFIRME', u.email, { ip: req.ip });
+    ouvrirSession(req, res, u);
     res.json({ utilisateur: publique(u) });
     return;
   }
@@ -192,16 +194,21 @@ routesAuth.post('/connexion', limiteAuth, async (req, res) => {
   const u = await trouverParIdentifiant(d);
   // Comparaison effectuée même si l'utilisateur n'existe pas (temps constant).
   const ok = await bcrypt.compare(d.motDePasse, u?.motDePasse ?? '$2b$12$invalideinvalideinvalideinvalideinvalideinvalideinval');
-  if (!u || !ok) throw new ErreurApi(401, 'IDENTIFIANTS', 'Identifiant ou mot de passe incorrect.');
+  if (!u || !ok) {
+    // Tentative échouée sur un compte existant : visible par l'administrateur (journal des connexions).
+    if (u) await journaliser(u.id, 'CONNEXION_ECHOUEE', u.email, { ip: req.ip });
+    throw new ErreurApi(401, 'IDENTIFIANTS', 'Identifiant ou mot de passe incorrect.');
+  }
+  if (!u.actif) throw new ErreurApi(403, 'COMPTE_DESACTIVE', 'Ce compte a été désactivé. Contactez l’administrateur.');
   if (!estVerifie(u)) {
     // Mot de passe juste mais compte non confirmé : nouveaux codes, puis écran de vérification.
     const envois = await envoyerCodesManquants(u).catch((e) => (logger.warn({ err: e }, 'Codes non renvoyés'), {}));
     res.status(403).json({ erreur: { code: 'COMPTE_NON_VERIFIE', message: 'Confirmez votre adresse e-mail et votre numéro de téléphone.' }, verification: etatVerification(u, envois) });
     return;
   }
-  await prisma.utilisateur.update({ where: { id: u.id }, data: { derniereConnexion: new Date() } });
-  await journaliser(u.id, 'CONNEXION', u.email);
-  ouvrirSession(res, u);
+  await prisma.utilisateur.update({ where: { id: u.id }, data: { derniereConnexion: new Date(), derniereActivite: new Date() } });
+  await journaliser(u.id, 'CONNEXION', u.email, { ip: req.ip });
+  ouvrirSession(req, res, u);
   res.json({ utilisateur: publique(u) });
 });
 
@@ -213,17 +220,18 @@ routesAuth.post('/mot-de-passe/oubli', limiteAuth, async (req, res) => {
   const d = valider(schemaOubli, req.body);
   if (!canauxDisponibles()[d.canal]) throw new ErreurApi(503, 'CANAL_INDISPONIBLE', 'Ce mode d’envoi n’est pas configuré sur ce serveur.');
   const u = await trouverParIdentifiant(d);
-  let codeDemo: string | undefined;
   if (u && (d.canal === 'EMAIL' || u.telephone)) {
     try {
-      codeDemo = (await envoyerCode(u, 'REINITIALISATION', d.canal)).codeDemo;
+      await envoyerCode(u, 'REINITIALISATION', d.canal);
     } catch (e) {
       // Les refus liés au rythme d'envoi sont signalés (ils ne révèlent rien de plus qu'un envoi réussi).
       if (e instanceof ErreurApi && (e.code === 'PATIENTER' || e.code === 'TROP_DE_CODES')) throw e;
       logger.warn({ err: e }, 'Code de réinitialisation non envoyé');
     }
   }
-  res.json({ envoye: true, ...(codeDemo && { codeDemo }) });
+  // Mode démonstration : le code n'est jamais affiché (il est écrit dans le journal du serveur, pour l'administrateur).
+  // L'indication ne dépend que de la configuration, pas de l'existence du compte.
+  res.json({ envoye: true, ...(!canauxConfigures()[d.canal] && { nonEnvoye: true }) });
 });
 
 /** POST /api/auth/mot-de-passe/reinitialiser — code reçu + nouveau mot de passe. */
@@ -237,7 +245,8 @@ routesAuth.post('/mot-de-passe/reinitialiser', limiteAuth, async (req, res) => {
   // Le code prouve l'accès au canal : l'adresse ou le numéro est confirmé au passage.
   await prisma.utilisateur.update({
     where: { id: u.id },
-    data: { motDePasse: await bcrypt.hash(d.motDePasse, 12), ...(canal === 'EMAIL' ? { emailVerifieLe: u.emailVerifieLe ?? new Date() } : { telephoneVerifieLe: u.telephoneVerifieLe ?? new Date() }) },
+    // versionSession + 1 : toutes les sessions ouvertes avec l'ancien mot de passe sont fermées.
+    data: { motDePasse: await bcrypt.hash(d.motDePasse, 12), versionSession: { increment: 1 }, ...(canal === 'EMAIL' ? { emailVerifieLe: u.emailVerifieLe ?? new Date() } : { telephoneVerifieLe: u.telephoneVerifieLe ?? new Date() }) },
   });
   await prisma.codeVerification.updateMany({ where: { utilisateurId: u.id, objet: 'REINITIALISATION', utiliseLe: null }, data: { utiliseLe: new Date() } });
   await journaliser(u.id, 'REINITIALISATION_MOT_DE_PASSE', u.email, { canal });

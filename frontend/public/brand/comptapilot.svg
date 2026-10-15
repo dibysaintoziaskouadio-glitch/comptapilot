@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B2A5B"/>
+      <stop offset="1" stop-color="#0E7C86"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="plane" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFB547"/>
+      <stop offset="1" stop-color="#FFD978"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fond -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+
+  <!-- Anneau "C" -->
+  <path d="M 742 300 A 300 300 0 1 0 742 724" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="56" stroke-linecap="round"/>
+
+  <!-- Barres de compta -->
+  <rect x="318" y="560" width="92" height="170" rx="22" fill="url(#bar)"/>
+  <rect x="456" y="470" width="92" height="260" rx="22" fill="url(#bar)"/>
+  <rect x="594" y="380" width="92" height="350" rx="22" fill="url(#bar)"/>
+
+  <!-- Trajectoire -->
+  <path d="M 300 520 Q 470 470 560 360 T 700 250" fill="none" stroke="#FFD978" stroke-width="18" stroke-linecap="round" stroke-dasharray="2 34"/>
+
+  <!-- Avion en papier (pilote) -->
+  <g transform="translate(724 238) rotate(-35)">
+    <path d="M 90 0 L -70 -62 L -30 0 L -70 62 Z" fill="url(#plane)"/>
+    <path d="M 90 0 L -30 0 L -70 62 Z" fill="#E8932A"/>
+  </g>
+</svg>

@@ -276,7 +276,7 @@ export const scenarios = formule({
   references: [REF_CHOIX],
   champs: [
     montant('investissement', 'Investissement initial', { defaut: '250000' }),
-    entier('duree', 'Durée (années)', { defaut: 5, min: '1' }),
+    entier('duree', 'Durée (années)', { defaut: 5, min: '1', max: '50' }),
     taux('taux', 'Taux d’actualisation', { defaut: '9' }),
     table('scenarios', 'Scénarios', [texte('scenario', 'Scénario'), taux('probabilite', 'Probabilité'), montant('fluxAnnuel', 'Flux annuel constant')], {
       min: '1',
@@ -330,7 +330,7 @@ export const monteCarlo = formule({
     montant('ecartTypeFlux', 'Écart-type du flux annuel', { defaut: '18000' }),
     taux('taux', 'Taux d’actualisation', { defaut: '9' }),
     entier('simulations', 'Nombre de simulations', { defaut: 1000, min: '100', max: '5000' }),
-    entier('graine', 'Graine du générateur', { defaut: 42, min: '0' }),
+    entier('graine', 'Graine du générateur', { defaut: 42, min: '0', max: '4294967295' }),
   ],
   exemples: [{ titre: '1 000 tirages, graine 42', entrees: {}, attendu: { simulations: '1000', vanMoyenne: '42495.93', ecartType: '31974.76', probaVanNegative: '7.70' } }],
   calculer(e, c) {

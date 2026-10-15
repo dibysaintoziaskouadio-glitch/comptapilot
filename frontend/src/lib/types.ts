@@ -22,6 +22,32 @@ export interface Utilisateur {
   telephone: string | null;
 }
 
+/** Compte vu par l'administrateur (écran Utilisateurs). */
+export interface CompteAdmin {
+  id: string;
+  nom: string;
+  email: string;
+  telephone: string | null;
+  role: 'ADMIN' | 'COMPTABLE' | 'LECTEUR';
+  actif: boolean;
+  confirme: boolean;
+  enLigne: boolean;
+  creeLe: string;
+  derniereConnexion: string | null;
+  derniereActivite: string | null;
+  nbCalculs: number;
+}
+
+/** Événement du journal des connexions et des comptes. */
+export interface EvenementCompte {
+  id: string;
+  action: string;
+  cible: string | null;
+  details: { ip?: string; de?: string; vers?: string } | null;
+  creeLe: string;
+  utilisateur: { nom: string; email: string } | null;
+}
+
 export interface CalculResume {
   id: string;
   moteur: string;

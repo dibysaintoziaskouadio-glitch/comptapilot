@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { BookMarked, Boxes, ChevronDown, History, LayoutDashboard, LogOut, Moon, Search, Sun, X } from 'lucide-react';
+import { BookMarked, Boxes, ChevronDown, History, LayoutDashboard, LogOut, Moon, Search, Sun, Users, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useCatalogue, useSession } from '@/hooks/useDonnees';
 import { useTheme } from '@/hooks/useTheme';
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { PaletteCommandes } from './PaletteCommandes';
 import { MenuPreferences } from './Preferences';
 import { useT } from '@/lib/i18n';
-import { LogoVision, MARQUE, MonogrammeVision } from '@/components/Marque';
+import { LogoComptapilot, MARQUE, MonogrammeVision } from '@/components/Marque';
 
 /** « Compte de démonstration » → « CD » ; un seul mot → ses deux premières lettres. */
 const initiales = (nom: string) => {
@@ -37,9 +37,9 @@ function Scene() {
   );
 }
 
-type Rubrique = 'accueil' | 'moteurs' | 'historique' | 'baremes';
+type Rubrique = 'accueil' | 'moteurs' | 'historique' | 'baremes' | 'utilisateurs';
 const rubriqueDe = (chemin: string): Rubrique =>
-  chemin.startsWith('/historique') ? 'historique' : chemin.startsWith('/baremes') ? 'baremes' : chemin.startsWith('/moteur') || chemin.startsWith('/calcul') ? 'moteurs' : 'accueil';
+  chemin.startsWith('/utilisateurs') ? 'utilisateurs' : chemin.startsWith('/historique') ? 'historique' : chemin.startsWith('/baremes') ? 'baremes' : chemin.startsWith('/moteur') || chemin.startsWith('/calcul') ? 'moteurs' : 'accueil';
 
 /** Liste des moteurs (panneau latéral sur ordinateur, feuille du bas sur mobile). */
 function ListeMoteurs({ onChoisir }: { onChoisir?: () => void }) {
@@ -86,6 +86,7 @@ function Bulle({ children }: { children: React.ReactNode }) {
 
 function BarreLaterale({ ouvrirPalette }: { ouvrirPalette: () => void }) {
   const { t } = useT();
+  const admin = useSession().data?.utilisateur.role === 'ADMIN';
   const loc = useLocation();
   const rubrique = rubriqueDe(loc.pathname);
   const [moteursOuverts, setMoteursOuverts] = useState(false);
@@ -111,6 +112,8 @@ function BarreLaterale({ ouvrirPalette }: { ouvrirPalette: () => void }) {
     { id: 'moteurs', icone: <Boxes className="size-[19px]" />, libelle: t('nav.moteursCourt') },
     { id: 'historique', to: '/historique', icone: <History className="size-[19px]" />, libelle: t('nav.historique') },
     { id: 'baremes', to: '/baremes', icone: <BookMarked className="size-[19px]" />, libelle: t('nav.baremes') },
+    // Écran réservé aux administrateurs.
+    ...(admin ? [{ id: 'utilisateurs' as const, to: '/utilisateurs', icone: <Users className="size-[19px]" />, libelle: t('nav.utilisateurs') }] : []),
   ];
   const index = elements.findIndex((e) => e.id === rubrique);
   const bouton = 'relative z-10 grid size-11 place-items-center rounded-full transition-colors duration-300';
@@ -119,7 +122,7 @@ function BarreLaterale({ ouvrirPalette }: { ouvrirPalette: () => void }) {
     <aside className="fixed left-5 top-1/2 z-30 hidden -translate-y-1/2 lg:block">
       <nav className="carte flex flex-col items-center gap-3 rounded-full p-2" aria-label="Navigation">
         <Link to="/" className="grid size-11 place-items-center" aria-label="Comptapilot">
-          <LogoVision className="size-10 rounded-full ring-1 ring-white/10" />
+          <LogoComptapilot className="size-10 rounded-full ring-1 ring-white/10" />
         </Link>
         <div className="h-px w-7 bg-bordure" />
         <div className="relative flex flex-col gap-2">
@@ -263,6 +266,11 @@ function CarteUtilisateur() {
             <p className="mt-1.5 inline-flex rounded-full bg-accent-doux px-2 py-0.5 text-[11px] font-semibold text-accent-texte">{t(`role.${u.role}`)}</p>
           </div>
           <div className="my-1 h-px bg-bordure" />
+          {u.role === 'ADMIN' && (
+            <Link to="/utilisateurs" onClick={() => setOuvert(false)} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors hover:bg-surface-2">
+              <Users className="size-4" /> {t('nav.utilisateurs')}
+            </Link>
+          )}
           <button onClick={deconnexion} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium text-danger transition-colors hover:bg-danger/10">
             <LogOut className="size-4" /> {t('nav.deconnexion')}
           </button>
@@ -303,7 +311,7 @@ export function Gabarit() {
         <header className="sticky top-0 z-20 bg-gradient-to-b from-[hsl(var(--fond)/.85)] via-[hsl(var(--fond)/.55)] to-transparent px-3 pb-3 pt-3 sm:px-6 sm:pt-4 lg:pr-8">
           <div className="mx-auto flex max-w-[1500px] items-center gap-2.5 sm:gap-3">
             <Link to="/" className="shrink-0 lg:hidden" aria-label="Comptapilot">
-              <LogoVision className="size-11 ring-1 ring-white/10" />
+              <LogoComptapilot className="size-11 ring-1 ring-white/10" />
             </Link>
             <button
               onClick={() => setPalette(true)}

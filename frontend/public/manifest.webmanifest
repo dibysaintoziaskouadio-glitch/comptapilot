@@ -7,14 +7,14 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#1a1540",
+  "background_color": "#0B2A5B",
   "theme_color": "#1a1540",
   "categories": ["finance", "business", "productivity"],
   "icons": [
     { "src": "/brand/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/brand/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/brand/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/brand/vision-technologie.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/brand/comptapilot.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
     { "name": "Historique des calculs", "url": "/historique", "icons": [{ "src": "/brand/icone-192.png", "sizes": "192x192" }] },

@@ -14,6 +14,7 @@ const PageTableauDeBord = lazy(() => import('@/pages/TableauDeBord').then((m) =>
 const PageMoteur = lazy(() => import('@/pages/Moteur').then((m) => ({ default: m.PageMoteur })));
 const PageFormule = lazy(() => import('@/pages/Formule').then((m) => ({ default: m.PageFormule })));
 const PageHistorique = lazy(() => import('@/pages/Historique').then((m) => ({ default: m.PageHistorique })));
+const PageUtilisateurs = lazy(() => import('@/pages/Utilisateurs').then((m) => ({ default: m.PageUtilisateurs })));
 const PageBaremes = lazy(() => import('@/pages/Baremes').then((m) => ({ default: m.PageBaremes })));
 
 const Attente = () => (
@@ -56,6 +57,7 @@ export function App() {
           <Route path="calcul/:moteur/:formule" element={<Suspense fallback={<Attente />}><PageFormule /></Suspense>} />
           <Route path="historique" element={<Suspense fallback={<Attente />}><PageHistorique /></Suspense>} />
           <Route path="baremes" element={<Suspense fallback={<Attente />}><PageBaremes /></Suspense>} />
+          <Route path="utilisateurs" element={<Suspense fallback={<Attente />}><PageUtilisateurs /></Suspense>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

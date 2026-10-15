@@ -1,7 +1,8 @@
-import { ajouterVersion, listerBaremes } from '@compta/moteurs';
+import { listerBaremes } from '@compta/moteurs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { logger } from '../../config/logger';
+import { enregistrerVersion } from '../calc/executeur';
 
 const versStatut = (s: 'officiel' | 'a_verifier'): 'OFFICIEL' | 'A_VERIFIER' => (s === 'officiel' ? 'OFFICIEL' : 'A_VERIFIER');
 
@@ -22,7 +23,7 @@ export async function synchroniserBaremes(): Promise<void> {
   const saisies = enBase.filter((v) => v.origine === 'SAISIE');
   for (const v of saisies) {
     try {
-      ajouterVersion(v.code, { du: v.du, au: v.au ?? undefined, valeurs: v.valeurs, source: v.source, note: v.note ?? undefined, statut: v.statut === 'OFFICIEL' ? 'officiel' : 'a_verifier' });
+      enregistrerVersion(v.code, { du: v.du, au: v.au ?? undefined, valeurs: v.valeurs, source: v.source, note: v.note ?? undefined, statut: v.statut === 'OFFICIEL' ? 'officiel' : 'a_verifier' });
     } catch (e) {
       logger.warn({ code: v.code, err: e }, 'Version de barème ignorée');
     }

@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Download, Share, X } from 'lucide-react';
 import { useT } from '@/lib/i18n';
-import { LogoVision } from '@/components/Marque';
+import { LogoComptapilot } from '@/components/Marque';
 
 interface InviteNative extends Event {
   prompt: () => Promise<void>;
@@ -60,7 +60,7 @@ export function InviteInstallation() {
         <X className="size-4" />
       </button>
       <div className="flex items-start gap-3 pr-6">
-        <LogoVision className="size-11 ring-1 ring-white/15" />
+        <LogoComptapilot className="size-11 ring-1 ring-white/15" />
         <div className="min-w-0">
           <p className="font-display text-[15px] font-semibold">{t('pwa.titre')}</p>
           <p className="mt-0.5 text-[12.5px] leading-snug text-white/65">{ios ? t('pwa.ios') : t('pwa.texte')}</p>

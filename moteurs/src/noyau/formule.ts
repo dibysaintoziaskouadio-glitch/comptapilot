@@ -48,7 +48,9 @@ function parserNombre(v: unknown): Decimal | null {
   if (typeof v === 'number') return Number.isFinite(v) ? d(String(v)) : null;
   if (typeof v !== 'string') return null;
   const s = normaliserNombre(v);
-  return RE_NOMBRE.test(s) ? d(s) : null;
+  if (!RE_NOMBRE.test(s)) return null;
+  const x = d(s);
+  return x.isFinite() ? x : null; // plus de 100 chiffres : hors limites
 }
 
 function estVisible(champ: Champ, brut: Record<string, unknown>, champs: Champ[]): boolean {
@@ -57,6 +59,11 @@ function estVisible(champ: Champ, brut: Record<string, unknown>, champs: Champ[]
   const valeur = brut[champ.visibleSi.champ] ?? source?.defaut;
   return champ.visibleSi.valeurs.some((v) => String(v) === String(valeur));
 }
+
+/** Plafond d'un champ `entier` qui ne déclare pas de maximum. */
+export const ENTIER_MAX_DEFAUT = '100000';
+/** Valeur absolue maximale d'un nombre saisi (au-delà, la précision de 28 chiffres ne garantit plus le centime). */
+export const NOMBRE_MAX = '1e18';
 
 function parserChamp(champ: Champ, valeur: unknown, chemin: string, erreurs: ErreurChamp[]): unknown {
   const err = (message: string) => {
@@ -69,6 +76,7 @@ function parserChamp(champ: Champ, valeur: unknown, chemin: string, erreurs: Err
     case 'taux': {
       const x = parserNombre(valeur);
       if (!x) return err('nombre attendu');
+      if (x.abs().greaterThanOrEqualTo(NOMBRE_MAX)) return err('valeur hors limites');
       if (champ.min !== undefined && x.lessThan(champ.min)) return err(`doit être ≥ ${champ.min}`);
       if (champ.max !== undefined && x.greaterThan(champ.max)) return err(`doit être ≤ ${champ.max}`);
       return champ.type === 'taux' ? x.div(100) : x;
@@ -77,7 +85,9 @@ function parserChamp(champ: Champ, valeur: unknown, chemin: string, erreurs: Err
       const x = parserNombre(valeur);
       if (!x || !x.isInteger()) return err('nombre entier attendu');
       if (champ.min !== undefined && x.lessThan(champ.min)) return err(`doit être ≥ ${champ.min}`);
-      if (champ.max !== undefined && x.greaterThan(champ.max)) return err(`doit être ≤ ${champ.max}`);
+      // Sans maximum déclaré, un plafond protège les boucles (échéanciers, tableaux) d'une saisie démesurée.
+      const max = champ.max ?? ENTIER_MAX_DEFAUT;
+      if (x.greaterThan(max)) return err(`doit être ≤ ${max}`);
       return x.toNumber();
     }
     case 'date':
@@ -102,10 +112,12 @@ function parserChamp(champ: Champ, valeur: unknown, chemin: string, erreurs: Err
             .split(/[;\n]/)
             .map((s) => s.trim())
             .filter((s) => s !== '');
+      if (items.length > 10_000) return err('10 000 valeurs maximum');
       const out: Decimal[] = [];
       items.forEach((it, i) => {
         const x = parserNombre(it);
         if (!x) erreurs.push({ champ: `${chemin}[${i + 1}]`, message: 'nombre attendu' });
+        else if (x.abs().greaterThanOrEqualTo(NOMBRE_MAX)) erreurs.push({ champ: `${chemin}[${i + 1}]`, message: 'valeur hors limites' });
         else out.push(x);
       });
       if (champ.min !== undefined && out.length < Number(champ.min))
@@ -114,7 +126,8 @@ function parserChamp(champ: Champ, valeur: unknown, chemin: string, erreurs: Err
     }
     case 'table': {
       if (!Array.isArray(valeur)) return err('liste de lignes attendue');
-      if (valeur.length > 10_000) return err('10 000 lignes maximum');
+      const maxLignes = champ.max !== undefined ? Number(champ.max) : 10_000;
+      if (valeur.length > maxLignes) return err(`${maxLignes} lignes maximum`);
       const lignes: Record<string, unknown>[] = [];
       valeur.forEach((ligne, i) => {
         if (typeof ligne !== 'object' || ligne === null) {

@@ -91,7 +91,9 @@ L'architecture détaillée (cycle d'un calcul, contexte, barèmes, API, modèle 
 | SMS | Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` |
 | WhatsApp | Twilio (bac à sable pour les essais, numéro WhatsApp Business validé en production) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` |
 
-Sans fournisseur, **`CODES_VISIBLES=true`** active le **mode démonstration** : rien n'est envoyé, le code s'affiche à l'écran dans un encadré signalé « Mode démonstration ». À réserver aux essais : en production, laisser `false` et configurer les fournisseurs.
+Sans fournisseur, **`CODES_VISIBLES=true`** active le **mode démonstration** : rien n'est envoyé, le code de confirmation d'inscription s'affiche à l'écran dans un encadré signalé « Mode démonstration ». Le code de **mot de passe oublié n'est jamais affiché** (sinon n'importe qui pourrait prendre un compte existant) : il est écrit dans le journal du serveur (`docker compose logs backend`), où l'administrateur peut le lire. À réserver aux essais : en production, laisser `false` et configurer les fournisseurs.
+
+Un changement de mot de passe ferme toutes les sessions ouvertes du compte.
 
 ## Langue et monnaie
 

@@ -336,7 +336,7 @@ export const derogatoire = formule({
       ['degressif', 'Dégressif'],
       ['lineaire', 'Linéaire sur la durée d’usage fiscale'],
     ]),
-    entier('dureeFiscale', 'Durée fiscale (années)', { defaut: 5, min: '1' }),
+    entier('dureeFiscale', 'Durée fiscale (années)', { defaut: 5, min: '1', max: '50' }),
   ],
   exemples: [{ titre: 'Linéaire 8 ans / dégressif 5 ans', entrees: {}, attendu: { derogatoire1: '11250.00' } }],
   calculer(e, c) {
@@ -619,7 +619,7 @@ export const creditBail = formule({
   champs: [
     montant('valeurBien', 'Valeur du bien à la signature', { defaut: '60000' }),
     montant('redevance', 'Redevance périodique HT', { defaut: '3300' }),
-    entier('nbRedevances', 'Nombre de redevances', { defaut: 20, min: '1' }),
+    entier('nbRedevances', 'Nombre de redevances', { defaut: 20, min: '1', max: '600' }),
     choix('periodicite', 'Périodicité', [
       ['4', 'Trimestrielle'],
       ['12', 'Mensuelle'],

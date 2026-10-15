@@ -440,8 +440,8 @@ export const grosEntretien = formule({
   ],
   champs: [
     montant('coutEstime', 'Coût estimé de l’intervention', { defaut: '96000' }),
-    entier('dureeProgramme', 'Durée totale du programme (années)', { defaut: 8, min: '1' }),
-    entier('anneesEcoulees', 'Années déjà provisionnées', { defaut: 3, min: '0' }),
+    entier('dureeProgramme', 'Durée totale du programme (années)', { defaut: 8, min: '1', max: '50' }),
+    entier('anneesEcoulees', 'Années déjà provisionnées', { defaut: 3, min: '0', max: '50' }),
     montant('provisionConstituee', 'Provision déjà constituée', { defaut: '36000' }),
   ],
   exemples: [{ titre: 'Ravalement à 8 ans', entrees: {}, attendu: { dotation: '12000.00', provisionCible: '48000.00' } }],

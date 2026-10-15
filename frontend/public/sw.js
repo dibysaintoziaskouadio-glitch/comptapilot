@@ -4,8 +4,8 @@
  * - /assets/* : fichiers empreintés, servis depuis le cache puis rafraîchis ;
  * - pages : réseau d'abord, page en cache si le réseau est coupé (l'application s'ouvre, puis signale l'absence de connexion).
  */
-const VERSION = 'comptapilot-v1';
-const COQUILLE = ['/', '/manifest.webmanifest', '/brand/vision-technologie.svg', '/brand/icone-192.png'];
+const VERSION = 'comptapilot-v2';
+const COQUILLE = ['/', '/manifest.webmanifest', '/brand/comptapilot.svg', '/brand/icone-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(COQUILLE)).then(() => self.skipWaiting()));

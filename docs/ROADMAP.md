@@ -28,8 +28,8 @@ Objectif : pouvoir s'appuyer sur les résultats pour un dossier client.
    - `sectoriels.micro` : seuils et taux 2025-2026.
 2. **Recouper avec les références officielles.** Comparer un jeu de cas par moteur aux simulateurs publics (URSSAF, impots.gouv) et faire relire les exemples par un expert-comptable ; consigner l'origine de chaque valeur de référence dans les exemples.
 3. **Couverture à 100 % des formules critiques.** Bulletin de paie, CA3 et CA12, impôt sur les sociétés et acomptes, emprunts, plans d'amortissement : couvrir toutes les branches, y compris les refus d'entrées incohérentes. Couverture actuelle du moteur : 94,8 % des lignes, 74,2 % des branches.
-4. **Compléter le journal d'audit.** Les connexions et réinitialisations sont tracées ; restent les suppressions de calculs et la validation directe à l'enregistrement (`POST /api/calc` avec `valider`).
-5. **Envoi réel des codes.** Configurer SMTP et Twilio (ou un fournisseur local de SMS), désactiver `CODES_VISIBLES`, faire valider un modèle de message WhatsApp ; invalider les sessions ouvertes après un changement de mot de passe (aujourd'hui, une session déjà ouverte reste valable jusqu'à son expiration).
+4. **Journal d'audit.** Connexions, réinitialisations, validations (y compris directes à l'enregistrement) et suppressions de calculs sont tracées ; reste un écran de consultation pour l'administrateur.
+5. **Envoi réel des codes.** Configurer SMTP et Twilio (ou un fournisseur local de SMS), désactiver `CODES_VISIBLES`, faire valider un modèle de message WhatsApp. (Les sessions ouvertes sont déjà fermées après un changement de mot de passe.)
 6. **Procédure annuelle de mise à jour.** Calendrier (loi de finances et LFSS en décembre, arrêté PASS, revalorisation du SMIC), liste des barèmes concernés et contrôle que le tableau de bord n'affiche plus de barème à surveiller en début d'année.
 7. **Intégration continue.** Exécuter typecheck, tests du moteur et de l'API, construction Docker et captures à chaque modification ; refuser une baisse de couverture.
 

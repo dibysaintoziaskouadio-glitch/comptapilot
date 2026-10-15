@@ -95,5 +95,6 @@ routesHistorique.delete('/:id', async (req, res) => {
   // Un calcul validé fait partie de la piste d'audit : il ne peut plus être supprimé.
   if (c.statut === 'VALIDE') throw new ErreurApi(409, 'CALCUL_VALIDE', 'Un calcul validé ne peut pas être supprimé (piste d’audit).');
   await prisma.calcul.delete({ where: { id: c.id } });
+  await journaliser(req.session!.id, 'SUPPRESSION_CALCUL', c.id, { formule: `${c.moteur}/${c.formuleId}`, empreinte: c.empreinte });
   res.status(204).end();
 });

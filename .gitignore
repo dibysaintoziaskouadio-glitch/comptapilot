@@ -11,3 +11,4 @@ backups/
 video/*.mp4
 video/voix*.webm
 video/voix.wav
+.claude/settings.local.json

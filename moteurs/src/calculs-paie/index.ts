@@ -619,7 +619,7 @@ export const ijssMaladie = formule({
   champs: [
     dateOperation('Date de début de l’arrêt', { defaut: '2024-09-02' }),
     montant('brut3Mois', 'Brut des 3 mois précédant l’arrêt', { defaut: '9300' }),
-    entier('joursArret', 'Durée de l’arrêt (jours calendaires)', { defaut: 15, min: '1' }),
+    entier('joursArret', 'Durée de l’arrêt (jours calendaires)', { defaut: 15, min: '1', max: '1095' }),
   ],
   exemples: [{ titre: 'Arrêt de 15 jours', entrees: {}, attendu: { sjb: '101.92', ij: '50.96', joursIndemnises: '12', total: '611.52' } }],
   calculer(e, c) {
@@ -647,9 +647,9 @@ export const maintienSalaire = formule({
   champs: [
     montant('salaireMensuel', 'Salaire mensuel brut', { defaut: '3000' }),
     nombre('anciennete', 'Ancienneté (années)', { defaut: '7', min: '0' }),
-    entier('joursArret', 'Durée de l’arrêt (jours)', { defaut: 60, min: '1' }),
+    entier('joursArret', 'Durée de l’arrêt (jours)', { defaut: 60, min: '1', max: '1095' }),
     montant('ijJournaliere', 'IJSS journalière brute', { defaut: '49.32' }),
-    entier('carence', 'Jours de carence employeur', { defaut: 7, min: '0' }),
+    entier('carence', 'Jours de carence employeur', { defaut: 7, min: '0', max: '365' }),
   ],
   exemples: [{ titre: '60 jours, 7 ans', entrees: {}, attendu: { jours90: '40', jours66: '13', complement: '1852.71' } }],
   calculer(e, c) {

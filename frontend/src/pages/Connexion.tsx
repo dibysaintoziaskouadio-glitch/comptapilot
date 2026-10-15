@@ -15,7 +15,7 @@ import { CodeOTP } from '@/components/CodeOTP';
 import { drapeau, PAYS, paysParDefaut } from '@/lib/pays';
 import { api, ErreurApi } from '@/lib/api';
 import { emailValide, LONGUEUR_MIN, reglesMotDePasse, robustesse } from '@/lib/motDePasse';
-import { LogoVision, MARQUE } from '@/components/Marque';
+import { LogoComptapilot, MARQUE } from '@/components/Marque';
 import { OndeFluide } from '@/components/OndeFluide';
 import { cn } from '@/lib/utils';
 import { useT, type Cle } from '@/lib/i18n';
@@ -737,7 +737,7 @@ function FormulaireOubli({ identifiantInitial, canaux, retour }: { identifiantIn
   const [canal, setCanal] = useState<'EMAIL' | CanalTel>(parEmail || !identifiant ? 'EMAIL' : 'SMS');
   const canalEffectif = options.some((o) => o.v === canal) ? canal : (options[0]?.v ?? 'EMAIL');
   const [envoye, setEnvoye] = useState(false);
-  const [codeDemo, setCodeDemo] = useState<string | undefined>();
+  const [nonEnvoye, setNonEnvoye] = useState(false);
   const [code, setCode] = useState('');
   const [mdp, setMdp] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -756,8 +756,8 @@ function FormulaireOubli({ identifiantInitial, canaux, retour }: { identifiantIn
     setErreur(null);
     setEnvoi(true);
     try {
-      const r = await api<{ envoye: boolean; codeDemo?: string }>('/auth/mot-de-passe/oubli', { method: 'POST', json: { identifiant, pays, canal: canalEffectif } });
-      setCodeDemo(r.codeDemo);
+      const r = await api<{ envoye: boolean; nonEnvoye?: boolean }>('/auth/mot-de-passe/oubli', { method: 'POST', json: { identifiant, pays, canal: canalEffectif } });
+      setNonEnvoye(!!r.nonEnvoye);
       setEnvoye(true);
       setCode('');
       rebours.relancer();
@@ -812,7 +812,14 @@ function FormulaireOubli({ identifiantInitial, canaux, retour }: { identifiantIn
       <p role="status" className="flex items-start gap-2 rounded-2xl bg-white/[.05] px-4 py-2.5 text-[12.5px] text-white/70 animate-montee">
         <Send className="mt-0.5 size-4 shrink-0 text-[#67e8f9]" /> {t('cx.oubliEnvoye', { identifiant })}
       </p>
-      <CodesDemo codes={[{ libelle: t('cx.code'), code: codeDemo }]} />
+      {nonEnvoye && (
+        <div className="rounded-2xl border border-dashed border-[#fcd34d]/50 bg-[#fcd34d]/[.07] px-4 py-3 text-[12.5px] text-[#fde68a] animate-montee" role="note">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <FlaskConical className="size-4" /> {t('cx.demoTitre')}
+          </p>
+          <p className="mt-1 text-[#fde68a]/80">{t('cx.demoReinit')}</p>
+        </div>
+      )}
       <div className="animate-montee" style={cascade(1)}>
         <p className="mb-1.5 pl-1 text-[11px] font-semibold uppercase tracking-[.12em] text-white/55">{t('cx.code')}</p>
         <CodeOTP valeur={code} onChange={setCode} libelle={t('cx.code')} autoFocus />
@@ -907,7 +914,7 @@ export function PageConnexion() {
         {/* Barre supérieure */}
         <header className="flex items-center justify-between gap-4 border-b border-white/[.07] px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
-            <LogoVision className="size-10 ring-1 ring-white/15" />
+            <LogoComptapilot className="size-10 ring-1 ring-white/15" />
             <div className="leading-tight">
               <p className="font-display text-[15px] font-bold uppercase tracking-[.14em]">Comptapilot</p>
               <p className="text-[11px] tracking-wide text-white/55">{t('commun.parSociete', { societe: MARQUE.societe })}</p>

@@ -5,9 +5,10 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { env } from './config/env';
 import { logger } from './config/logger';
-import { authentifier } from './middlewares/authentification';
+import { authentifier, exigerRole } from './middlewares/authentification';
 import { gestionnaireErreurs } from './middlewares/erreurs';
 import { routesAuth } from './modules/auth/auth.routes';
+import { routesAdmin } from './modules/admin/admin.routes';
 import { routesBaremes } from './modules/baremes/baremes.routes';
 import { routesCalc } from './modules/calc/calc.routes';
 import { routesHistorique } from './modules/historique/historique.routes';
@@ -19,7 +20,9 @@ export function creerApp() {
   app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: true }));
-  app.use(express.json({ limit: '6mb' })); // un FEC complet peut être volumineux
+  // Corps JSON limité à 100 ko, sauf pour les calculs (un FEC complet peut être volumineux), lus après authentification.
+  const jsonCourt = express.json({ limit: '100kb' });
+  app.use((req, res, next) => (req.path.startsWith('/api/calc/') ? next() : jsonCourt(req, res, next)));
   app.use(cookieParser());
   if (env.NODE_ENV !== 'test') app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/sante' } }));
 
@@ -28,9 +31,10 @@ export function creerApp() {
     res.json({ statut: 'ok' });
   });
   app.use('/api/auth', routesAuth);
-  app.use('/api/calc', authentifier, routesCalc);
+  app.use('/api/calc', authentifier, express.json({ limit: '6mb' }), routesCalc);
   app.use('/api/historique', authentifier, routesHistorique);
   app.use('/api/baremes', authentifier, routesBaremes);
+  app.use('/api/admin', authentifier, exigerRole('ADMIN'), routesAdmin);
   app.use('/api', (_req, res) => {
     res.status(404).json({ erreur: { code: 'NON_TROUVE', message: 'Route inconnue' } });
   });

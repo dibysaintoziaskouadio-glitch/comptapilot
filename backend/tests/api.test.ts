@@ -11,6 +11,16 @@ import request from 'supertest';
 import { creerApp } from '../src/app';
 import { prisma } from '../src/config/prisma';
 import { synchroniserBaremes } from '../src/modules/baremes/baremes.service';
+import { arreterExecuteur } from '../src/modules/calc/executeur';
+import * as expediteur from '../src/modules/notifications/expediteur';
+
+// Messages « envoyés » : les codes de réinitialisation ne sont jamais renvoyés par l'API, on les lit ici comme le destinataire.
+const envoyes: string[] = [];
+jest.spyOn(expediteur, 'envoyer').mockImplementation(async (m) => {
+  envoyes.push(m.texte);
+  return false;
+});
+const dernierCode = () => /\b(\d{6})\b/.exec(envoyes[envoyes.length - 1])![1];
 
 const app = creerApp();
 const admin = request.agent(app);
@@ -33,7 +43,10 @@ beforeAll(async () => {
   await prisma.utilisateur.deleteMany();
   await synchroniserBaremes();
 });
-afterAll(() => prisma.$disconnect());
+afterAll(async () => {
+  await arreterExecuteur();
+  await prisma.$disconnect();
+});
 
 describe('Authentification', () => {
   test('les routes de calcul exigent une session', async () => {
@@ -113,25 +126,41 @@ describe('Authentification', () => {
   test('mot de passe oublié : code par e-mail puis nouveau mot de passe', async () => {
     const inconnu = await request(app).post('/api/auth/mot-de-passe/oubli').send({ identifiant: 'personne@nulle-part.fr', canal: 'EMAIL' });
     expect(inconnu.status).toBe(200);
-    expect(inconnu.body).toEqual({ envoye: true }); // même réponse, sans code : pas d'énumération
+    expect(inconnu.body).toEqual({ envoye: true, nonEnvoye: true }); // même réponse : pas d'énumération
+    const ancienneSession = request.agent(app);
+    expect((await ancienneSession.post('/api/auth/connexion').send({ identifiant: 'compta@cabinet.fr', motDePasse: 'Balance&Bilan-42' })).status).toBe(200);
     const o = await request(app).post('/api/auth/mot-de-passe/oubli').send({ identifiant: 'compta@cabinet.fr', canal: 'EMAIL' });
-    expect(o.body.envoye).toBe(true);
-    const code = o.body.codeDemo;
-    expect(code).toMatch(/^\d{6}$/);
+    // Mode démonstration : le code n'est jamais affiché (sinon n'importe qui pourrait prendre le compte).
+    expect(o.body).toEqual({ envoye: true, nonEnvoye: true });
+    const code = dernierCode();
     const faible = await request(app).post('/api/auth/mot-de-passe/reinitialiser').send({ identifiant: 'compta@cabinet.fr', code, motDePasse: 'faible' });
     expect(faible.body.erreur.details[0].champ).toBe('motDePasse');
     const ok = await request(app).post('/api/auth/mot-de-passe/reinitialiser').send({ identifiant: 'compta@cabinet.fr', code, motDePasse: 'Nouveau#Bilan-2027' });
     expect(ok.body).toEqual({ reinitialise: true });
     expect((await request(app).post('/api/auth/mot-de-passe/reinitialiser').send({ identifiant: 'compta@cabinet.fr', code, motDePasse: 'Encore#Bilan-2028' })).body.erreur.code).toBe('CODE_INCORRECT'); // usage unique
     expect((await request(app).post('/api/auth/connexion').send({ identifiant: 'compta@cabinet.fr', motDePasse: 'Balance&Bilan-42' })).status).toBe(401);
+    expect((await ancienneSession.get('/api/auth/moi')).status).toBe(401); // sessions ouvertes avant le changement : fermées
     expect((await comptable.post('/api/auth/connexion').send({ identifiant: 'compta@cabinet.fr', motDePasse: 'Nouveau#Bilan-2027' })).status).toBe(200);
   });
   test('mot de passe oublié par SMS avec le numéro de téléphone', async () => {
     const o = await request(app).post('/api/auth/mot-de-passe/oubli').send({ identifiant: '0701020304', pays: 'CI', canal: 'SMS' });
-    expect(o.body.codeDemo).toMatch(/^\d{6}$/);
-    const ok = await request(app).post('/api/auth/mot-de-passe/reinitialiser').send({ identifiant: '+2250701020304', code: o.body.codeDemo, motDePasse: 'Grand-Livre#2027' });
+    expect(o.body.codeDemo).toBeUndefined();
+    const ok = await request(app).post('/api/auth/mot-de-passe/reinitialiser').send({ identifiant: '+2250701020304', code: dernierCode(), motDePasse: 'Grand-Livre#2027' });
     expect(ok.body).toEqual({ reinitialise: true });
     expect((await admin.post('/api/auth/connexion').send({ identifiant: 'admin@cabinet.fr', motDePasse: 'Grand-Livre#2027' })).status).toBe(200);
+  });
+  test('essais simultanés : jamais plus de 5 par code', async () => {
+    const r = await request(app).post('/api/auth/inscription').send({ email: 'rafale@cabinet.fr', nom: 'Rafale', telephone: '+2250708091099', motDePasse: 'Grand-Livre#2026' });
+    const v = r.body.verification;
+    const faux = v.codesDemo.email === '000000' ? '111111' : '000000';
+    await Promise.all(Array.from({ length: 12 }, () => request(app).post('/api/auth/verification/verifier').send({ jeton: v.jeton, cible: 'email', code: faux })));
+    const c = await prisma.codeVerification.findFirst({ where: { objet: 'VERIFICATION_EMAIL', destination: 'rafale@cabinet.fr' } });
+    expect(c!.tentatives).toBe(5);
+    expect((await request(app).post('/api/auth/verification/verifier').send({ jeton: v.jeton, cible: 'email', code: v.codesDemo.email })).body.erreur.code).toBe('CODE_EPUISE');
+  });
+  test('corps de requête limité hors calculs', async () => {
+    const r = await request(app).post('/api/auth/connexion').send({ identifiant: 'x'.repeat(200_000), motDePasse: 'x' });
+    expect(r.status).toBe(413);
   });
   test('état public : canaux disponibles et mode démonstration', async () => {
     const r = await request(app).get('/api/auth/etat');
@@ -165,6 +194,18 @@ describe('Moteur de calcul', () => {
     const r = await comptable.post('/api/calc/tva/ht-ttc').send({ entrees: { montant: 'abc' } });
     expect(r.status).toBe(422);
     expect(r.body.erreur.details[0]).toEqual({ champ: 'montant', message: 'nombre attendu' });
+  });
+  test('saisies démesurées refusées sans bloquer le serveur', async () => {
+    const loyers = await comptable.post('/api/calc/amortissements/credit-bail').send({ entrees: { nbRedevances: '100000000' } });
+    expect(loyers.status).toBe(422);
+    expect(loyers.body.erreur.details[0]).toEqual({ champ: 'nbRedevances', message: 'doit être ≤ 600' });
+    const duree = await comptable.post('/api/calc/tresorerie/interets-placement').send({ entrees: { calcul: 'composes', duree: '100000000' } });
+    expect(duree.status).toBe(422);
+    expect(duree.body.erreur.code).toBe('CALCUL_IMPOSSIBLE');
+    const enorme = await comptable.post('/api/calc/base/repartition-proportionnelle').send({ entrees: { total: '9'.repeat(40) } });
+    expect(enorme.body.erreur.details[0]).toEqual({ champ: 'total', message: 'valeur hors limites' });
+    // Le serveur répond toujours normalement.
+    expect((await comptable.post('/api/calc/tva/ht-ttc').send({ entrees: { depuis: 'HT', montant: '1000', taux: '20' } })).status).toBe(200);
   });
 });
 
@@ -216,6 +257,7 @@ describe('Historique des calculs', () => {
   test('suppression d’un brouillon', async () => {
     const r = await comptable.post('/api/calc/base/arrondi').send({ entrees: {}, enregistrer: true });
     expect((await comptable.delete(`/api/historique/${r.body.calculId}`)).status).toBe(204);
+    expect(await prisma.journalAudit.count({ where: { action: 'SUPPRESSION_CALCUL', cible: r.body.calculId } })).toBe(1);
   });
 });
 
@@ -235,5 +277,40 @@ describe('Barèmes versionnés', () => {
     const r = await comptable.post('/api/calc/paie/conversion-salaire').send({ entrees: { dateOperation: '2027-03-31', montant: '2460' } });
     expect(r.body.resultat.baremes[0]).toMatchObject({ du: '2027-01-01', source: 'Arrêté PASS 2027 (test)' });
     expect(r.body.resultat.resultats.ratioSmic.valeur).toBe('131.87');
+  });
+});
+
+describe('Administration des comptes', () => {
+  const cible = request.agent(app);
+  test('réservée aux administrateurs', async () => {
+    expect((await comptable.get('/api/admin/utilisateurs')).status).toBe(403);
+    expect((await request(app).get('/api/admin/utilisateurs')).status).toBe(401);
+  });
+  test('liste des comptes avec activité et journal des connexions', async () => {
+    await request(app).post('/api/auth/connexion').send({ identifiant: 'compta@cabinet.fr', motDePasse: 'Mauvais#Essai-1' });
+    const r = await admin.get('/api/admin/utilisateurs');
+    expect(r.status).toBe(200);
+    const moi = r.body.utilisateurs.find((u: { email: string }) => u.email === 'admin@cabinet.fr');
+    expect(moi).toMatchObject({ role: 'ADMIN', actif: true, enLigne: true, confirme: true });
+    expect(moi.motDePasse).toBeUndefined();
+    const j = await admin.get('/api/admin/connexions');
+    expect(j.body.evenements[0]).toMatchObject({ action: 'CONNEXION_ECHOUEE', cible: 'compta@cabinet.fr' });
+  });
+  test('désactivation : sessions fermées et connexion refusée, puis réactivation', async () => {
+    const r = await inscrire(cible, { email: 'stagiaire@cabinet.fr', nom: 'Sacha Stagiaire', telephone: '+2250708091077', motDePasse: 'Grand-Livre#2026' });
+    const id = r.body.utilisateur.id;
+    expect((await cible.get('/api/auth/moi')).status).toBe(200);
+    expect((await admin.patch(`/api/admin/utilisateurs/${id}`).send({ actif: false })).body.utilisateur.actif).toBe(false);
+    expect((await cible.get('/api/auth/moi')).status).toBe(401);
+    const c = await request(app).post('/api/auth/connexion').send({ identifiant: 'stagiaire@cabinet.fr', motDePasse: 'Grand-Livre#2026' });
+    expect(c.body.erreur.code).toBe('COMPTE_DESACTIVE');
+    await admin.patch(`/api/admin/utilisateurs/${id}`).send({ actif: true, role: 'LECTEUR' });
+    const c2 = await cible.post('/api/auth/connexion').send({ identifiant: 'stagiaire@cabinet.fr', motDePasse: 'Grand-Livre#2026' });
+    expect(c2.body.utilisateur.role).toBe('LECTEUR');
+    expect(await prisma.journalAudit.count({ where: { action: { in: ['COMPTE_DESACTIVE', 'COMPTE_REACTIVE', 'CHANGEMENT_ROLE'] }, cible: 'stagiaire@cabinet.fr' } })).toBe(3);
+  });
+  test('impossible de se modifier soi-même ou de retirer le dernier administrateur', async () => {
+    const moi = (await admin.get('/api/auth/moi')).body.utilisateur.id;
+    expect((await admin.patch(`/api/admin/utilisateurs/${moi}`).send({ role: 'COMPTABLE' })).body.erreur.code).toBe('SOI_MEME');
   });
 });
